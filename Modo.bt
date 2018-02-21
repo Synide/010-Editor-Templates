@@ -7,6 +7,12 @@
 // Purpose: Reads all known chunks in modo *.lxo, *.lxp. *.lxe and *.lxl files
 //--------------------------------------
 
+
+// 15-01-2018 - Synide - Added 'APPV' chunk processing
+// 21-02-2018 - Synide - Added 'IASS' Chunk processing
+// 21-02-2018 - Synide - Added 'ITEM.VNAM' sub chunk processing
+
+
 local int haveValidFormat = false;
 local ulong numTriSurfVerts; // stores num of verts in 3SRF chunk for use by VRTS chunk
 local ulong numTriSurfTris; // stores num of tris in 3SRF chunk for use by TRIS chunk
@@ -54,6 +60,8 @@ struct CPYR_CHUNK;
 struct ANNO_CHUNK;
 struct AANI_CHUNK;
 struct BAKE_CHUNK;
+struct APPV_CHUNK;
+struct IASS_CHUNK;
 
 // misc
 struct RGBA;
@@ -93,7 +101,7 @@ enum {              // Item Data Types
 //------------------------------------------------------------
 
 BigEndian(); 
-SetBackColor( 0x6BC040 );
+//SetBackColor( 0x6BC040 );
 IFFHEADER header;
 
 
@@ -130,141 +138,115 @@ while( !FEof() )
     switch( tag )
     {
         case "PSCR":
-            SetBackColor( cLtPurple );
             PSCR_CHUNK   PSCR;
             break;
         case "DESC":
-            SetBackColor( cLtPurple );
             DESC_CHUNK   DESC;
             break;
         case "PRVW":
-            SetBackColor( cNone );
             PRVW_CHUNK   PRVW;
             break;
         case "VRSN":
-            SetBackColor( 0x2AD4FF );
             VRSN_CHUNK   VRSN;
             break;
         case "ENCO":
-            SetBackColor( cLtPurple );
             ENCO_CHUNK  ENCO;
             break;
         case "STAG":
-            SetBackColor( cLtPurple );
             STAG_CHUNK  STAG;
             break;
         case "THUM":
-            SetBackColor( cNone );
             THUM_CHUNK   THUM;
             break;
         case "PRNT":
-            SetBackColor( cLtGray );
             PRNT_CHUNK   PRNT;
             break;
         case "ITEM":
-            SetBackColor( 0x406BC0 );
             ITEM_CHUNK   ITEM;
             break;
         case "ENVL":
-            SetBackColor( cLtGreen );
             ENVL_CHUNK   ENVL;
             break;
         case "ACTN":
-            SetBackColor( cLtGreen );
             ACTN_CHUNK   ACTN;
             break;
         case "TAGS":
-            SetBackColor( 0xE1E1E1 );
             TAGS_CHUNK   TAGS;
             break;
         case "REFS":
-            SetBackColor( 0xE1E1E1 );
             REFS_CHUNK   REFS;
             break;
         case "CHNM":
-            SetBackColor( 0xFFAAAA );
             CHNM_CHUNK   CHNM;
             break;
         case "LAYR":
-            SetBackColor( 0xFFAAD4 );
             LAYR_CHUNK   LAYR;
             break;
         case "PNTS":
-            SetBackColor( 0xFFD4AA );
             PNTS_CHUNK   PNTS;
             break;
         case "BBOX":
-            SetBackColor( 0xFFAA2A );
             BBOX_CHUNK   BBOX;
             break;
         case "VMPA":
-            SetBackColor( cLtGreen );
             VMPA_CHUNK   VMPA;
             break;
         case "VMAP":
-            SetBackColor( cLtGreen );
             VMAP_CHUNK   VMAP;
             break;
         case "POLS":
-            SetBackColor( 0xD4D4FF );
             POLS_CHUNK   POLS;
             break;
         case "VMAD":
-            SetBackColor( cLtGreen );
             VMAD_CHUNK   VMAD;
             break;
         case "VMED":
-            SetBackColor( cLtGreen );
             VMAD_CHUNK   VMAD;
             break;
         case "PTAG":
-            SetBackColor( 0x6BC040 );
             PTAG_CHUNK   PTAG;
             break;
         case "3GRP":
-            SetBackColor( cLtGreen );
             _3GRP_CHUNK   _3GRP;
             break;
         case "3SRF":
-            SetBackColor( cLtGreen );
             _3SRF_CHUNK   _3SRF;
             break;
         case "VRTS":
-            SetBackColor( cLtGreen );
             VRTS_CHUNK   VRTS;
             break;
         case "TRIS":
-            SetBackColor( cLtGreen );
             TRIS_CHUNK   TRIS;
             break;
         case "VVEC":
-            SetBackColor( cLtGreen );
             VVEC_CHUNK   VVEC;
             break;
         case "TTGS":
-            SetBackColor( cLtGreen );
             TTGS_CHUNK   TTGS;
             break;
         case "AUTH":
-            SetBackColor( cLtGreen );
             AUTH_CHUNK   AUTH;
             break;
         case "(c) ":
-            SetBackColor( cLtGreen );
             CPYR_CHUNK   CPYR;
             break;
         case "ANNO":
-            SetBackColor( cLtGreen );
             ANNO_CHUNK   ANNO;
             break;
         case "BAKE":
-            SetBackColor( cLtGreen );
             BAKE_CHUNK  BAKE;
             break;
         case "AANI":
-            SetBackColor( cLtGreen );
             AANI_CHUNK  AANI;
             break;
+            //SB - 15-1-2018 - Added APPV Chunk processing
+        case "APPV":
+            APPV_CHUNK  APPV;
+            break;
+						//SB - 21-02-2018 - Added IASS Chunk processing
+        case "IASS":
+	        	IASS_CHUNK	IASS;
+	        	break;
         default:
             // Unknown chunk
             if ( FTell() < header.size ){
@@ -284,7 +266,7 @@ while( !FEof() )
 //------------------------------------------------------------
 typedef struct 
 {
-    ID     groupID;
+    ID     groupID<name="Chunk ID", fgcolor=cRed>;
     long   size;
     ID     iffType;
 } IFFHEADER <name="IFF Header", read=IFFHEADER_Read>;
@@ -318,8 +300,9 @@ string IFFHEADER_Read(IFFHEADER &header) {
 //------------------------------------------------------------
 
 // PSCR chunk
-typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+typedef struct
+{
+    ID              chunkID<name="Chunk ID", fgcolor=0x000080>;
     CSIZE           size<name="Size">;
     string          scriptpath<name="Script Path   ">;
     if (sizeof(scriptpath) & 1)
@@ -336,7 +319,7 @@ string PSCR_CHUNKRead(PSCR_CHUNK &pscr) {
 
 // DESC chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     string          type<name="Type   ">;
     if (sizeof(type) & 1)
@@ -356,7 +339,7 @@ string DESC_CHUNKRead(DESC_CHUNK &desc) {
 
 // THUM chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     char            thumbData[size]<name="Thumbnail Image Data">;
 
@@ -368,7 +351,7 @@ typedef struct {
 
 // PRVW chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     local int pos = FTell();
     unsigned short  width<name="Width">;
@@ -391,7 +374,7 @@ string PRVW_CHUNKRead(PRVW_CHUNK &prvw) {
 
 // VRSN chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     ulong           majorVersion<name="Major Version">;
     ulong           minorVersion<name="Minor Version">;
@@ -411,7 +394,7 @@ string VRSN_CHUNKRead(VRSN_CHUNK &version) {
 
 // PRNT chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     local int pos = FTell();
     string          parent<name="Parent   ">;
@@ -430,7 +413,7 @@ typedef struct {
 
 // ENCO chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     unsigned long   encoding<name="Encoding">;
 
@@ -442,7 +425,7 @@ typedef struct {
 
 // STAG chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     ID              tag<name="Tag ID   ">;
     string          file<name="Filename   ">;
@@ -463,7 +446,7 @@ string STAG_CHUNKRead(STAG_CHUNK &stag) {
 
 // ITEM chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     local int       pos = FTell();
     string          type<name="Type   ">;
@@ -478,7 +461,7 @@ typedef struct {
     local int subchunks = FTell();
     // Read the subchunks
     while( FTell() - pos < size )
-        readITEMsubchunks(subchunks);
+        fn_ReadItemSubchunks(subchunks);
     
     // Unknown data at the end of the chunk
     if( size > (FTell() - pos) )
@@ -498,7 +481,7 @@ string ITEM_CHUNKRead(ITEM_CHUNK &chunk) {
 
 // ENVL chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     local int       pos = FTell();
     local ushort    tmpIndex;
@@ -520,7 +503,7 @@ typedef struct {
 
 // ACTN chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     local int       pos = FTell();
     string          name<name="Name   ">;
@@ -551,7 +534,7 @@ string ACTN_CHUNKRead(ACTN_CHUNK &actn) {
 
 // TAGS chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     local int       pos = FTell();
 
@@ -576,7 +559,7 @@ string TAGNAME_Read(TAGNAME &tag) {
 
 // CHNM chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     local int       pos = FTell();
     ulong           channels<name="Channels">;
@@ -600,7 +583,7 @@ string CHANNEL_Read(CHANNEL &chan) {
 
 // REFS chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     local int       pos = FTell();
     ulong           refscount<name="Refs Count">;
@@ -630,7 +613,7 @@ string FILESPEC_Read(FILESPEC &ref) {
 
 // LAYR chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     local int       pos = FTell();
     ushort          legacyIndex<name="(legacy) Index">;
@@ -665,7 +648,7 @@ string LAYR_CHUNKRead(LAYR_CHUNK &layr) {
 
 // PNTS chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     POINT           points[size/12]<name="Points   ">;
     // Padding so the next chunk starts on an even byte
@@ -682,7 +665,7 @@ string PNTS_CHUNKRead(PNTS_CHUNK &pnts) {
 
 // BBOX chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     POINT           min<name="Min">;
     POINT           max<name="Max">;
@@ -700,7 +683,7 @@ string BBOX_CHUNKRead(BBOX_CHUNK &bbox) {
 
 // VMPA chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     ulong           flags1<format=binary, name="Flags 1">; 
     ulong           flags2<format=binary, name="Flags 2">; 
@@ -718,7 +701,7 @@ string VMPA_CHUNKRead(VMPA_CHUNK &vmpa) {
 
 // VMAP chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     local int       pos = FTell();
     ID              type<name="Map Type   ">;
@@ -750,43 +733,44 @@ string VMAP_CHUNKread(VMAP_CHUNK &vmap) {
 }
 
 
-// POLS chunk
-typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+// POLS Chunk
+typedef struct
+{
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     local int       pos = FTell();
-    ID              type<name="Poly Type   ">;
+    ID              polygon_type<name="Polygon Type">;
     
-    
-    typedef struct{
+    typedef struct
+    {
         local ushort tmpIndex;
         tmpIndex = ReadUShort(FTell());
         if (tmpIndex < 0xFF00)
             ushort  index;
         else
             ulong   index;
-    }VERTINDEX<name="Index", read=VERTINDEX_Read>;
+    } VERTINDEX<name="Index", read=VERTINDEX_Read>;
 
-    while( FTell() - pos < size ){
-        ushort nverts;
-        if ("CURV" == type || "BEZR" == type) {
+    while(FTell() - pos < size)
+    {
+        ushort nverts<name="Vert Count">;
+        if ("CURV" == polygon_type || "BEZR" == polygon_type)
+        {
             ulong flags = (nVerts & 0xfc00) >> 10;        // get curve flags
             nVerts &= 0x3ff;                        // mask off curve flags
-            }
-        else if ("HCRV" == type || "BCRV"  == type) {
+        }
+        else if ("HCRV" == polygon_type || "BCRV"  == polygon_type)
+        {
             ulong flags;
             VERTINDEX vertIndex[nverts] <optimize=false>;
             break;
-            }
-        if ("CURV" == type || "BEZR" == type)
+        }
+        if ("CURV" == polygon_type || "BEZR" == polygon_type)
             if (nVerts < 4 || 1 != (nVerts % 3))        // Skip invalid bezier curves
                 continue;
         VERTINDEX vertIndex[nverts] <optimize=false>;
-     }
+    }
         
-        
-        
-
     // Padding so the next chunk starts on an even byte
     if( (size & 1) && (FTell() < FileSize()) )
         uchar padding <hidden=true>;
@@ -800,7 +784,7 @@ string VERTINDEX_Read(VERTINDEX &index){
 
 // VMAD chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     local int       pos = FTell();
     ID              type<name="Type   ">;
@@ -825,7 +809,7 @@ string VMAD_CHUNKread(VMAD_CHUNK &vmad){
 
 // VMED chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     ID              type<name="Type   ">;
     ushort          dimension<name="Dimension">;
@@ -849,7 +833,7 @@ string VMED_CHUNKread(VMED_CHUNK &vmed){
 
 // PTAG chunk
 typedef struct{
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     local int       pos = FTell();
     ID              type<name="Type">;
@@ -877,7 +861,7 @@ string PTAG_CHUNKRead(PTAG_CHUNK &ptag) {
 
 // 3GRP chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     ulong           numTriSurfs<name="Trisurf Count">;
     ulong           itemReference<name="Item Ref">;
@@ -890,7 +874,7 @@ typedef struct {
 
 // 3SRF chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     ulong           numVerts<name="Num Verts">;
     numTriSurfVerts = numVerts;
@@ -909,7 +893,7 @@ typedef struct {
 
 // VRTS chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     POINT           verts[numTriSurfVerts]<name="Verts   ">;
      // Padding so the next chunk starts on an even byte
@@ -925,7 +909,7 @@ string VRTS_CHUNKread(VRTS_CHUNK &vrts) {
 
 // TRIS chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     struct tri {
         ulong   vertA;
@@ -947,7 +931,7 @@ string TRIS_CHUNKread(TRIS_CHUNK &tris) {
 
 // VVEC chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     local int       pos = FTell();
     ID              type<name="Type   ">;
@@ -973,7 +957,7 @@ string VVEC_CHUNKread(VVEC_CHUNK &vvec) {
 
 // TTGS chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     typedef struct {
         ID          type<name="Type   ">;
@@ -996,7 +980,7 @@ string TSTAGRead(TSTAG &tag) {
 
 // AUTH chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     string          authorName<name="Author   ">;
     if (sizeof(authorName) & 1)
@@ -1014,7 +998,7 @@ string AUTH_CHUNKread(AUTH_CHUNK &auth) {
 
 // (c) chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     string          dateAndHolder<name="Date & Holder   ">;
     if (sizeof(dateAndHolder) & 1)
@@ -1032,7 +1016,7 @@ string CPYR_CHUNKread(CPYR_CHUNK &cpyr) {
 
 // ANNO chunk
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     string          annotation<name="Annotation   ">;
     if (sizeof(annotation) & 1)
@@ -1050,7 +1034,7 @@ string ANNO_CHUNKread(ANNO_CHUNK &anno) {
 
 // AANI CHUNK
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     local int pos = FTell();
     local int subchunks = FTell();
@@ -1066,10 +1050,40 @@ typedef struct {
         uchar padding <hidden=true>;
 } AANI_CHUNK <name="ANNI Chunk   ">;
 
+// APPV CHUNK
+typedef struct
+{
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
+    CSIZE           size<name="Size">;
+    ulong           majorVersion<name="Major Version">;
+    ulong           minorVersion<name="Minor Version">;
+    ulong						somethingVersion<name="Something Version">;
+    ulong						buildVersion<name="Build Version">;
+    string          application<name="Application">;
+    if (sizeof(application) & 1)
+        uchar padding <hidden=true>;
+
+    // Padding so the next chunk starts on an even byte
+    if( (size & 1) && (FTell() < FileSize()) )
+        uchar padding <hidden=true>;
+} APPV_CHUNK<name="APPV Chunk">;
+
+
+// IASS CHUNK
+typedef struct
+{
+		ID							chunkID<name="Chunk ID", fgcolor=cRed>;
+    CSIZE           size<name="Size">;
+    uchar     			unknownData[size];
+
+    // Padding so the next chunk starts on an even byte
+    if( (size & 1) && (FTell() < FileSize()) )
+        uchar padding <hidden=true>;
+} IASS_CHUNK<name="IASS CHUNK">;
 
 // BAKE CHUNK
 typedef struct {
-    ID              chunkID<name="Chunk ID   ">;
+    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     ulong           refID<name="Ref ID">;
     ulong           samples<name="Samples">;
@@ -1557,7 +1571,18 @@ typedef struct {
         uchar padding <hidden=true>;
 } ITEM_CHNC_SUBCHUNK <name="CHNC Subchunk   ">;
 
-
+// ITEM_VNAM_SUBCHUNK
+typedef struct
+{
+    ID          subchunkID<name="Subchunk ID">;
+    SCSIZE      size<name="Subchunk Size">;
+    string      name<name="Name   ">;
+    if (sizeof(name) & 1)
+        uchar padding <hidden=true>;
+    // Padding so the next chunk starts on an even byte
+    if( (size & 1) && (FTell() < FileSize()) )
+        uchar padding <hidden=true>;
+} ITEM_VNAM_SUBCHUNK <name="VNAM Subchunk   ">;
 
 //------------------------------------------------------------
 // ENVL subchunk definitions.
@@ -1987,7 +2012,7 @@ typedef struct {
 // catchall for chunks/subchunks we don't recognize
 //------------------------------------------------------------
 typedef struct {
-    ID          subchunkID<name="Chunk ID">;
+    ID          subchunkID<name="Chunk ID", fgcolor=cRed>;
     SCSIZE      size<name="Chunk Size">;
     uchar     unknownData[size];
 
@@ -2061,13 +2086,14 @@ typedef struct {
 // subchunk reading functions
 //------------------------------------------------------------
 
-void readITEMsubchunks(int pos){
+void fn_ReadItemSubchunks(int pos)
+{
     local ID tag;
     local uint size;
-    ReadBytes( tag, FTell(), 4 );
+    ReadBytes(tag,FTell(),4);
 
     // See which chunk this is
-    switch( tag )
+    switch(tag)
     {
         case "LINK":
             ITEM_LINK_SUBCHUNK LINK;
@@ -2100,33 +2126,29 @@ void readITEMsubchunks(int pos){
             ITEM_GRAD_SUBCHUNK GRAD;
             break;
         case "PAKG":
-            SetBackColor( cLtGreen );
-            ITEM_PAKG_SUBCHUNK   PAKG;
+            ITEM_PAKG_SUBCHUNK PAKG;
             break;
         case "CHAN":
-            SetBackColor( cLtGreen );
-            ITEM_CHAN_SUBCHUNK   CHAN;
+            ITEM_CHAN_SUBCHUNK CHAN;
             break;
         case "XREF":
-            SetBackColor( cLtGreen );
-            ITEM_XREF_SUBCHUNK   XREF;
+            ITEM_XREF_SUBCHUNK XREF;
             break;
         case "CLNK":
-            SetBackColor( cLtGreen );
-            ITEM_CLNK_SUBCHUNK   CLNK;
+            ITEM_CLNK_SUBCHUNK CLNK;
             break;
         case "PRVW":
-            SetBackColor( cPurple );
-            ITEM_PRVW_SUBCHUNK  PRVW;
+            ITEM_PRVW_SUBCHUNK PRVW;
             break;
         case "BBOX":
-            SetBackColor( cPurple );
-            ITEM_BBOX_SUBCHUNK  BBOX;
+            ITEM_BBOX_SUBCHUNK BBOX;
             break;
         case "CHNC":
-            SetBackColor( cGreen );
-            ITEM_CHNC_SUBCHUNK  CHNC;
+            ITEM_CHNC_SUBCHUNK CHNC;
             break;
+        case "VNAM":
+        		ITEM_VNAM_SUBCHUNK VNAM;
+        		break;
         default:
             size = ReadUInt( FTell()+4 );
             Printf( "Encountered unknown ITEM subchunk '%s' of size %d at position %Ld.\n", tag, size, FTell() );
