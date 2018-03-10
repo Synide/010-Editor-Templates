@@ -1,0 +1,163 @@
+// 010 Editor Template for Forgelight DME files
+// from Planetside 2
+
+typedef struct
+{
+	float x;
+	float y;
+	float z;
+} vector3_t<read=fn_Read_Vector3_t>;
+
+typedef struct
+{
+	vector3_t min<name="min">;
+	vector3_t max<name="max">;
+} aabb_t<read=fn_Read_AABB>;
+
+typedef struct
+{
+	byte											magic[4]<name="Magic">;
+	uint											version<name="Version">;
+	uint											dmat_length<name="DMAT Length">;
+} header_t;
+
+typedef struct
+{
+	string										texture<name="Texture">;
+} texture_t;
+
+typedef struct
+{
+	uint											semantic_hash;
+	uint											d3dxparameter_class;
+	uint											d3dxparameter_type;
+	uint											data_length;
+	byte											data[data_length];
+} material_parameter_t;
+
+typedef struct
+{
+	uint											name_hash<name="Name Hash">;
+	uint											materials_length<name="Materials Length">;
+	uint											material_definition_hash<name="Material Definition Hash">;
+	uint											parameter_count<name="Parameter Count">;
+	material_parameter_t			parameters[parameter_count]<name="Parameters", optimize=false>;
+} material_t;
+
+typedef struct
+{
+	byte											magic[4]<name="Magic">;
+	uint											version<name="Version">;
+	uint											textures_length<name="Textures Length">;
+  local uint tx_start_offset = FTell();
+  while(FTell() < tx_start_offset + textures_length)
+  {
+    texture_t								texture<name="Texture">;
+  };
+	uint											material_count<name="Material Count">;
+	material_t								materials[material_count]<name="Materials", optimize=true>;
+} dmat_t;
+
+
+
+
+
+
+
+
+typedef struct
+{
+	
+} mesh3_t;
+
+typedef struct
+{
+	uint											material_index<name="Material Index">;
+	uint											drawcall_count<name="Drawcall Count">;
+	uint											bone_transform_count<name="Bone Transform Count">;
+	uint											unknown<name="Unknown">;
+	uint											vertex_stream_count<name="Vertex Stream Count">;
+	uint											index_size<name="Index Size">;
+	uint											index_count<name="Index Count">;
+	uint											vertex_count<name="Vertex Count">;
+} mesh4_t;
+
+
+typedef struct
+{
+	aabb_t										aabb<name="AABB">;
+	uint											mesh_count<name="Mesh Count">;
+	mesh4_t										mesh<name="Mesh">;
+	
+//	mesh4_t										meshs[mesh_count]<name="Meshs">;
+} model4_t;
+
+
+
+
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+uint fn_Jenkins_Hash(string s, int upper)
+{
+	if (Strlen(s) == 0)
+		return 0;
+	if (upper)
+		s = ToUpper(s);
+
+	int hash = 0;
+	int len = Strlen(s);
+	for (i = 0; i < len; i++)
+	{
+		hash += s[i];
+		hash += (hash << 10);
+		hash ^= (hash >> 6);
+	}
+	hash += (hash << 3);
+	hash ^= (hash >> 11);
+	hash += (hash << 15);
+	return (unsigned int)hash;
+}
+
+string fn_Read_AABB(aabb_t &aabb)
+{
+	string s;
+	SPrintf(s, "min_xyz: %6.2f, %6.2f, %6.2f | max_xyz: %6.2f, %6.2f, %6.2f", aabb.min.x, aabb.min.y, aabb.min.z, aabb.max.x, aabb.max.y, aabb.max.z);
+	return s;
+}
+
+string fn_Read_Vector3_t(vector3_t &vec3)
+{
+	string s;
+	SPrintf(s, "xyz: %6.2f, %6.2f, %6.2f", vec3.x, vec3.y, vec3.z);
+	return s;
+}
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+LittleEndian();
+
+
+
+
+
+
+header_t												header<name="Header">;
+dmat_t													dmat<name="Dmat">;
+if (header.version == 3)
+{
+	//Do nothing at this time
+}
+else if (header.version == 4)
+{
+	model4_t											model<name="Model">;
+}
+else
+{
+	Warning( "Only able to process version 3 & 4 types of DME files." );
+	return -1;
+}

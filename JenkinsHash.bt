@@ -1,0 +1,42 @@
+//Jenkins Hash from Strings
+
+uint fn_Jenkins_Hash(string s)
+{
+	if (Strlen(s) == 0)
+		return 0;
+	local int hash = 0;
+	local int len = Strlen(s);
+	local int i;
+	for (i = 0; i < len; i++)
+	{
+		hash += s[i];
+		hash += (hash << 10);
+		hash ^= (hash >> 6);
+	}
+	hash += (hash << 3);
+	hash ^= (hash >> 11);
+	hash += (hash << 15);
+	return (unsigned int)hash;
+}
+
+typedef struct
+{
+	string								name<name="Name">;
+	local uint hash = fn_Jenkins_Hash(name);
+} myString_t <name="String", read=fn_Read_Hash>;
+
+string fn_Read_Hash(myString_t &str)
+{
+	string s;
+	SPrintf(s, "%s|%u", str.name, str.hash);
+	return  s;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+LittleEndian();
+while(!FEof())
+{
+	myString_t					material<name="Material">;
+}
