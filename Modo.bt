@@ -558,28 +558,32 @@ string TAGNAME_Read(TAGNAME &tag) {
 
 
 // CHNM chunk
-typedef struct {
-    ID              chunkID<name="Chunk ID", fgcolor=cRed>;
-    CSIZE           size<name="Size">;
-    local int       pos = FTell();
-    ulong           channels<name="Channels">;
-    typedef struct {
-        string      name<name="Name   ">;
-        if (sizeof(name) & 1)
-            uchar padding <hidden=true>;
-    } CHANNEL <read=CHANNEL_Read, name="Channel Name   ">;
-    while( FTell() - pos < size )
-        CHANNEL     name;
+typedef struct
+{
+	string name<name="Name">;
+	if (sizeof(name) & 1)
+	    uchar padding <hidden=true>;
+} channel_name_t <name="Channel Name", read=fn_Read_Channel_Name>;
 
-    // Padding so the next chunk starts on an even byte
-    if( (size & 1) && (FTell() < FileSize()) )
-        uchar padding <hidden=true>;
-} CHNM_CHUNK <name="CHNM Chunk   ">;
-
-string CHANNEL_Read(CHANNEL &chan) {
-    return chan.name;
+string fn_Read_Channel_Name(channel_name_t &chnm)
+{
+	return chnm.name;
+	string s;
+	SPrintf(s, "%s", chnm.name);
+	return s;
 }
 
+typedef struct
+{
+    ID              	chunkID<name="Chunk ID", fgcolor=cRed>;
+    CSIZE           	size<name="Size">;
+    ulong           	count<name="Count">;
+  	channel_name_t		channel_name[count]<name="Channel Name", optimize=false>;
+
+    // Padding so the next chunk starts on an even byte
+    if ((size & 1) && (FTell() < FileSize()))
+        uchar padding <hidden=true>;
+} CHNM_CHUNK <name="CHNM Chunk">;
 
 // REFS chunk
 typedef struct {
@@ -1427,7 +1431,8 @@ string ITEM_PAKG_SUBCHUNKread(ITEM_PAKG_SUBCHUNK &pakg) {
 
 
 // CHAN Subchunk
-typedef struct {
+typedef struct
+{
     ID              subchunkID<name="Subchunk ID">;
     SCSIZE          size<name="Subchunk Size">;
     local int       pos = FTell();
@@ -1437,6 +1442,7 @@ typedef struct {
         ushort          channelIndex<name="Channel Index">;
     else
         ulong           channelIndex<name="Channel Index">;
+    local string temp_channel_name = CHNM.channel_name[channelIndex].name;
     ushort          datatype<name="Datatype">;
     switch (datatype & ~0x20) {
         case 1: 
@@ -1464,14 +1470,22 @@ typedef struct {
     }
 
     // Unknown data at the end of the chunk
-    if( size > (FTell() - pos) )
-        uchar value[ size - (FTell() - pos) ];
+    if(size > (FTell() - pos))
+        uchar value[size - (FTell() - pos)];
 
     // Padding so the next chunk starts on an even byte
     if( (size & 1) && (FTell() < FileSize()) )
         uchar padding <hidden=true>;
-} ITEM_CHAN_SUBCHUNK <name="CHAN Subchunk   ">;
+} ITEM_CHAN_SUBCHUNK <name="CHAN", read=fn_Read_ITEM_CHAN_Subchunk>;
 
+string fn_Read_ITEM_CHAN_Subchunk(ITEM_CHAN_SUBCHUNK &chan)
+{
+	return chan.temp_channel_name;
+	string s;
+	SPrintf(s, "%u", chan.size);
+	//SPrintf(s, "%s", chan.temp_channel_name);
+	return "blah";
+}
 
 // XREF subchunk
 typedef struct {
