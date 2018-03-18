@@ -583,19 +583,30 @@ typedef struct
         string      tagname<name="Tag Name">;
         if (sizeof(tagname) & 1)
             uchar padding <hidden=true>;
-    } TAGNAME <read=TAGNAME_Read>;
+    } TAGNAME <read=fn_Read_Tagname>;
+
+		local uint count = 0;
 
     while( FTell() - pos < size )
+    {
         TAGNAME  tag<name="Tag">;
+        count += 1;
+    }
 
     // Padding so the next chunk starts on an even byte
     if( (size & 1) && (FTell() < FileSize()) )
         uchar padding <hidden=true>;
-} TAGS_CHUNK <name="TAGS">;
+} TAGS_CHUNK <name="TAGS", read=fn_Read_TAGS>;
 
-string TAGNAME_Read(TAGNAME &tag)
+string fn_Read_Tagname(TAGNAME &tag)
 {
     return tag.tagname;
+}
+
+string fn_Read_TAGS(TAGS_CHUNK &tags)
+{
+	string s;
+	return SPrintf(s, "%u", tags.count);
 }
 
 // CHNM chunk
@@ -736,7 +747,8 @@ string fn_Read_BBOX(BBOX_CHUNK &bbox)
 
 
 // VMPA chunk
-typedef struct {
+typedef struct
+{
     ID              chunkID<name="ChunkID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     ulong           flags1<format=binary, name="Flags 1">; 
@@ -744,13 +756,7 @@ typedef struct {
     // Padding so the next chunk starts on an even byte
     if( (size & 1) && (FTell() < FileSize()) )
         uchar padding <hidden=true>;
-} VMPA_CHUNK <read=fn_Read_VMPA, name="VMPA">;
-
-string fn_Read_VMPA(VMPA_CHUNK &vmpa)
-{
-    string s;
-    return SPrintf( s, "%d, %d", vmpa.flags1, vmpa.flags2 );
-}
+} VMPA_CHUNK <name="VMPA">;
 
 
 // VMAP chunk
@@ -865,13 +871,14 @@ string fn_Read_POLS(POLS_CHUNK &pols)
 }
 
 // VMAD chunk
-typedef struct {
+typedef struct
+{
     ID              chunkID<name="ChunkID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     local int       pos = FTell();
     ID              type<name="Type   ">;
     ushort          dimension<name="Dimension">;
-    string          name<name="Name   ">;
+    string          name<name="Name">;
     if (sizeof(name) & 1)
         uchar padding <hidden=true>;
     
@@ -881,16 +888,18 @@ typedef struct {
     // Padding so the next chunk starts on an even byte
     if( (size & 1) && (FTell() < FileSize()) )
         uchar padding <hidden=true>;
-} VMAD_CHUNK <read=VMAD_CHUNKread, name="VMAD">;
+} VMAD_CHUNK <read=fn_Read_VMAD, name="VMAD">;
 
-string VMAD_CHUNKread(VMAD_CHUNK &vmad){
+string fn_Read_VMAD(VMAD_CHUNK &vmad)
+{
     string s;
-    return SPrintf(s, "Type: %s   Name: %s", vmad.type, vmad.name);
+    return SPrintf(s, "Type: '%s' Name: '%s'", vmad.type, vmad.name);
 }
 
 
 // VMED chunk
-typedef struct {
+typedef struct
+{
     ID              chunkID<name="ChunkID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     ID              type<name="Type   ">;
@@ -905,11 +914,12 @@ typedef struct {
     // Padding so the next chunk starts on an even byte
     if( (size & 1) && (FTell() < FileSize()) )
         uchar padding <hidden=true>;
-} VMED_CHUNK <read=VMED_CHUNKread, name="VMED">;
+} VMED_CHUNK <read=fn_Read_VMED, name="VMED">;
 
-string VMED_CHUNKread(VMED_CHUNK &vmed){
+string fn_Read_VMED(VMED_CHUNK &vmed)
+{
     string s;
-    return SPrintf(s, "Type: %s   Name: %s", vmed.type, vmed.name);
+    return SPrintf(s, "Type: '%s' Name: '%s'", vmed.type, vmed.name);
 }
 
 
@@ -1103,7 +1113,8 @@ string fn_Read_TTGS(TTGS_CHUNK &tritag)
 
 
 // AUTH chunk
-typedef struct {
+typedef struct
+{
     ID              chunkID<name="ChunkID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     string          authorName<name="Author   ">;
@@ -1115,13 +1126,15 @@ typedef struct {
         uchar padding <hidden=true>;
 } AUTH_CHUNK <read=AUTH_CHUNKread, name="AUTH">;
 
-string AUTH_CHUNKread(AUTH_CHUNK &auth) {
+string AUTH_CHUNKread(AUTH_CHUNK &auth)
+{
     return auth.authorName;
 }
 
 
 // (c) chunk
-typedef struct {
+typedef struct
+{
     ID              chunkID<name="ChunkID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     string          dateAndHolder<name="Date & Holder   ">;
@@ -1133,13 +1146,15 @@ typedef struct {
         uchar padding <hidden=true>;
 } CPYR_CHUNK <read=CPYR_CHUNKread, name="CPYR">;
 
-string CPYR_CHUNKread(CPYR_CHUNK &cpyr) {
+string CPYR_CHUNKread(CPYR_CHUNK &cpyr)
+{
     return cpyr.dateAndHolder;
 }
 
 
 // ANNO chunk
-typedef struct {
+typedef struct
+{
     ID              chunkID<name="ChunkID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     string          annotation<name="Annotation   ">;
@@ -1151,13 +1166,15 @@ typedef struct {
         uchar padding <hidden=true>;
 } ANNO_CHUNK <read=ANNO_CHUNKread, name="ANNO">;
 
-string ANNO_CHUNKread(ANNO_CHUNK &anno) {
+string ANNO_CHUNKread(ANNO_CHUNK &anno)
+{
     return anno.annotation;
 }
 
 
 // AANI CHUNK
-typedef struct {
+typedef struct
+{
     ID              chunkID<name="ChunkID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     local int pos = FTell();
@@ -1207,7 +1224,8 @@ typedef struct
 } IASS_CHUNK<name="IASS">;
 
 // BAKE CHUNK
-typedef struct {
+typedef struct
+{
     ID              chunkID<name="ChunkID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     ulong           refID<name="Ref ID">;
