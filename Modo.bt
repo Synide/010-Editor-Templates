@@ -1812,19 +1812,21 @@ typedef struct
     // Padding so the next chunk starts on an even byte
     if( (size & 1) && (FTell() < FileSize()) )
         uchar padding <hidden=true>;
-} ENVL_PRE_SUBCHUNK <read=fn_Read_ENVL_PRE, name="PRE">;
+} ENVL_PRE <read=fn_Read_ENVL_PRE, name="PRE">;
 
-string fn_Read_ENVL_PRE(ENVL_PRE_SUBCHUNK &chunk)
+string fn_Read_ENVL_PRE(ENVL_PRE &chunk)
 {
     switch(chunk.behaviour)
     {
         case 0: return "Reset";
-        case 1: return "Constant";
+        case 1: return "Constant (Smooth)";
         case 2: return "Repeat";
-        case 3: return "Oscillate";
-        case 4: return "Offset Repeat";
+        case 3: return "Oscillate (Smooth)";
+        case 4: return "Offset Repeat (Smooth)";
         case 5: return "Linear";
-        case 6: return "None";
+        case 6: return "Constant";
+        case 7: return "Oscillate";
+        case 8: return "Offset Repeat";
     }
 }
 
@@ -1845,12 +1847,14 @@ string fn_Read_ENVL_POST(ENVL_POST_SUBCHUNK &chunk)
     switch(chunk.behaviour)
     {
         case 0: return "Reset";
-        case 1: return "Constant";
+        case 1: return "Constant (Smooth)";
         case 2: return "Repeat";
-        case 3: return "Oscillate";
-        case 4: return "Offset Repeat";
+        case 3: return "Oscillate (Smooth)";
+        case 4: return "Offset Repeat (Smooth)";
         case 5: return "Linear";
-        case 6: return "None";
+        case 6: return "Constant";
+        case 7: return "Oscillate";
+        case 8: return "Offset Repeat";
     }
 }
 
@@ -1866,9 +1870,9 @@ typedef struct
     // Padding so the next chunk starts on an even byte
     if( (size & 1) && (FTell() < FileSize()) )
         uchar padding <hidden=true>;
-} ENVL_KEY_SUBCHUNK <read=fn_Read_ENVL_KEY, name="KEY">;
+} ENVL_KEY <read=fn_Read_ENVL_KEY, name="KEY">;
 
-string fn_Read_ENVL_KEY(ENVL_KEY_SUBCHUNK &chunk)
+string fn_Read_ENVL_KEY(ENVL_KEY &chunk)
 {
     string s;
     return SPrintf(s, "%f", chunk.value);
@@ -1900,8 +1904,8 @@ typedef struct
 {
     ID          subchunkID<name="Subchunk ID">;
     SCSIZE      size<name="Subchunk Size">;
-    ushort      slopeType<name="Slope Type">;
-    ushort      weightType<name="Weight Type">;
+    ushort      slopeType<name="Slope Type", read=fnRead_SlopeType>;
+    ushort      weightType<name="Weight Type", read=fnRead_WeightType>;
     float       weight<name="Weight">;
     float       slope<name="Slope">;
     float       value<name="Value">;
@@ -1911,15 +1915,14 @@ typedef struct
         uchar padding <hidden=true>;
 } ENVL_TANI_SUBCHUNK<name="TANI">;
 
-
 // TANO subchunk
 typedef struct
 {
     ID          subchunkID<name="Subchunk ID">;
     SCSIZE      size<name="Subchunk Size">;
     ulong       breaks<name="Breaks">;
-    ushort      slopeType<name="Slope Type">;
-    ushort      weightType<name="Weight Type">;
+    ushort      slopeType<name="Slope Type", read=fnRead_SlopeType>;
+    ushort      weightType<name="Weight Type", read=fnRead_WeightType>;
     float       weight<name="Weight">;
     float       slope<name="Slope">;
     float       value<name="Value">;
@@ -1929,6 +1932,43 @@ typedef struct
         uchar padding <hidden=true>;
 } ENVL_TANO_SUBCHUNK<name="TANO">;
 
+string fnRead_SlopeType(ushort type)
+{
+	switch (type)
+	{
+		case 0:
+			return "Manual";
+		case 1:
+			return "Automatic";
+		case 2:
+			return "Linear In";
+		case 4:
+			return "Linear Out";
+		case 8:
+			return "Flat";
+		case 16:
+			return "Auto Flat";
+		case 32:
+			return "Stepped";
+		case 64:
+			return "Smooth Flat";
+		default:
+			return "Unknown";
+	}
+}
+
+string fnRead_WeightType(ushort type)
+{
+	switch (type)
+	{
+		case 0:
+			return "Manual";
+		case 1:
+			return "Automatic";
+		default:
+			return "Unknown";
+	}
+}
 
 // FLAG subchunk
 typedef struct
@@ -2413,13 +2453,13 @@ void fn_Read_ENVL_Subchunks(int pos)
     switch(tag)
     {
         case "PRE ":
-            ENVL_PRE_SUBCHUNK PRE;
+            ENVL_PRE PRE;
             break;
         case "POST":
             ENVL_POST_SUBCHUNK POST;
             break;
         case "KEY ":
-            ENVL_KEY_SUBCHUNK KEY;
+            ENVL_KEY KEY;
             break;
         case "IKEY":
             ENVL_IKEY_SUBCHUNK IKEY;
