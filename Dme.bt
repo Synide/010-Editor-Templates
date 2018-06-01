@@ -16,7 +16,7 @@ typedef struct
 
 typedef struct
 {
-	byte											magic[4]<name="Magic">;
+	byte											magic[4]<name="Magic", fgcolor=cRed>;
 	uint											version<name="Version">;
 	uint											dmat_length<name="DMAT Length">;
 } header_t;
@@ -46,7 +46,7 @@ typedef struct
 
 typedef struct
 {
-	byte											magic[4]<name="Magic">;
+	byte											magic[4]<name="Magic", fgcolor=cRed>;
 	uint											version<name="Version">;
 	uint											textures_length<name="Textures Length">;
   local uint tx_start_offset = FTell();
@@ -55,14 +55,86 @@ typedef struct
     texture_t								texture<name="Texture">;
   };
 	uint											material_count<name="Material Count">;
-	material_t								materials[material_count]<name="Materials", optimize=true>;
+	material_t								materials[material_count]<name="Materials", optimize=false>;
 } dmat_t;
 
+///////////////////////////////////////////////////////////////////////////////////////////
+//
+//					VERTEX STREAM LAYOUT STURCTURES
+//
+///////////////////////////////////////////////////////////////////////////////////////////
 
+typedef struct
+{
+	ubyte					x;
+	ubyte					y;
+	ubyte					z;
+	ubyte					w;
+} ubyte4n_t;
 
+typedef struct
+{
+	ubyte					a;
+	ubyte					r;
+	ubyte					g;
+	ubyte					b;
+} d3dcolor_t;
 
+typedef struct
+{
+	vector3_t				position<name="Position">;
+	ubyte4n_t				blendweight<name="BlendWeight">;
+	d3dcolor_t			blendindices<name="BlendIndices">;
+} character_layout_0_t;
 
+typedef struct
+{
+	hfloat					u<name="U">;
+	hfloat					v<name="V">;
+} uv_t;
 
+typedef struct
+{
+	ubyte4n_t				tangent<name="Tangent">;
+	ubyte4n_t				binormal<name="Binormal">;
+	uv_t						uv0<name="UV0">;
+	uv_t						uv1<name="UV1">;
+	uv_t						uv2<name="UV2">;
+} character_layout_1_t;
+
+typedef struct
+{
+	ushort					vert_index_0<name="Vert0">;
+	ushort					vert_index_1<name="Vert1">;
+	ushort					vert_index_2<name="Vert2">;
+} triangle_t;
+
+typedef struct
+{
+	uint						unknown_1<name="Unknown_1">;
+	uint						bone_start<name="Bone Start">;
+	uint						bone_count<name="Bone Count">;
+	uint						delta<name="Delta">;
+	uint						unknown_2<name="Unknown_2">;
+	uint						vertex_offset<name="Vertex Offset">;
+	uint						vertex_count<name="Vertex Count">;
+	uint						index_offset<name="Index Offset">;
+	uint						index_count<name="Index Count">;
+} drawcall_t;
+
+typedef struct
+{
+	ushort					bone_index;
+	ushort					global_index;
+} bone_map_entry_t;
+
+typedef struct
+{
+	vector3_t						row1<name="Row1">;
+	vector3_t						row2<name="Row2">;
+	vector3_t						row3<name="Row3">;
+	vector3_t						row4<name="Row4">;
+} transform_t;
 
 
 typedef struct
@@ -72,24 +144,57 @@ typedef struct
 
 typedef struct
 {
-	uint											material_index<name="Material Index">;
-	uint											drawcall_count<name="Drawcall Count">;
-	uint											bone_transform_count<name="Bone Transform Count">;
-	uint											unknown<name="Unknown">;
-	uint											vertex_stream_count<name="Vertex Stream Count">;
-	uint											index_size<name="Index Size">;
-	uint											index_count<name="Index Count">;
-	uint											vertex_count<name="Vertex Count">;
+	uint													material_index<name="Material Index">;
+	uint													drawcall_count<name="Drawcall Count">;
+	uint													bone_transform_count<name="Bone Transform Count">;
+	uint													unknown<name="Unknown">;
+	uint													vertex_stream_count<name="Vertex Stream Count">;
+	uint													index_size<name="Index Size">;
+	uint													index_count<name="Index Count">;
+	uint													vertex_count<name="Vertex Count">;
+	
+	typedef struct
+	{
+		uint												bytes_per_vertex<name="BytesPerVertex">;
+		character_layout_0_t				verts[vertex_count]<name="Verts", optimize=false>;
+	} character_stream_0_t;
+
+	character_stream_0_t																				stream0<name="Stream0">;
+
+	typedef struct
+	{
+		uint												bytes_per_vertex<name="BytesPerVertex">;
+		character_layout_1_t				verts[vertex_count]<name="Verts", optimize=false>;
+	} character_stream_1_t;
+
+	character_stream_1_t																				stream1<name="Stream1">;
+
+	typedef struct
+	{
+		triangle_t									faces[index_count / 3]<name="Triangles">;
+	} triangles_t;
+	
+	triangles_t																									faces<name="Faces">;
+	uint													draw_call_count<name="Drawcall Count">;
+	drawcall_t										drawcall<name="Drawcall">;
+	uint													bone_map_entry_count<name="Bonemap Entry Count">;
+	
+	typedef struct
+	{
+		bone_map_entry_t																					bonemap[bone_map_entry_count]<name="Bonemap", optimize=false>;
+	} bone_maps_t;
+	
+	bone_maps_t									bonemaps<name="Bonemaps">;
+	uint												transform_count<name="Transform_Count">;
+	transform_t									transforms[transform_count]<name="Transforms">;
 } mesh4_t;
 
 
 typedef struct
 {
-	aabb_t										aabb<name="AABB">;
-	uint											mesh_count<name="Mesh Count">;
-	mesh4_t										mesh<name="Mesh">;
-	
-//	mesh4_t										meshs[mesh_count]<name="Meshs">;
+	aabb_t																											aabb<name="AABB">;
+	uint																												mesh_count<name="Mesh Count">;
+	mesh4_t																											mesh<name="Mesh">;
 } model4_t;
 
 
@@ -133,7 +238,7 @@ string fn_Read_AABB(aabb_t &aabb)
 string fn_Read_Vector3_t(vector3_t &vec3)
 {
 	string s;
-	SPrintf(s, "xyz: %6.2f, %6.2f, %6.2f", vec3.x, vec3.y, vec3.z);
+	SPrintf(s, "xyz: %6.6f, %6.6f, %6.6f", vec3.x, vec3.y, vec3.z);
 	return s;
 }
 ///////////////////////////////////////////////////////////////////////////////

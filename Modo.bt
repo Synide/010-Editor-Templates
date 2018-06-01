@@ -251,7 +251,8 @@ while(!FEof())
 	        	break;
         default:
             // Unknown chunk
-            if ( FTell() < header.size ){
+            if ( FTell() < header.size )
+            {
                 size = ReadUInt( FTell()+4 );
                 Printf( "Encountered unknown chunk '%s' of size %d at position %Ld.\n", tag, size, FTell() );
                 SetBackColor( cNone );
@@ -368,7 +369,7 @@ typedef struct
     unsigned short  height<name="Height">;
     unsigned long   type<name="Type">;
     unsigned long   flags<format=binary, name="Flags">; 
-    char            previewData[size - (FTell() - pos)]<name="Preview Image Data   ">;
+    char            previewData[size - (FTell() - pos)]<name="Preview Image Data">;
     
 
     // Padding so the next chunk starts on an even byte
@@ -1875,7 +1876,7 @@ typedef struct
 string fn_Read_ENVL_KEY(ENVL_KEY &chunk)
 {
     string s;
-    return SPrintf(s, "%f", chunk.value);
+    return SPrintf(s, "%f @ %f", chunk.value, chunk.time);
 }
 
 
