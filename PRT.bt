@@ -1,0 +1,416 @@
+// 010 Editor Template for Krakatoa Particle File Format (.PRT) format
+// synide@rocketmail.com
+// July, 2018
+
+typedef struct
+{
+	byte											magic[8]<name="Magic", fgcolor=cRed>;
+	uint											header_and_chunk_section_size<name="Header & Chunk Section Size">;
+	char											format_ident[32]<name="Format Ident">;
+	uint											version<name="Version">;
+	uint64										particle_count<name="Particle Count">;
+} header_t;
+
+typedef char chunk_type_t[4];
+typedef char channel_name_t[32];
+
+enum enum_value_type
+{
+	type_string = -1,
+	type_int16,
+	type_int32,
+	type_int64,
+	type_float16,
+	type_float32,
+	type_float64,
+	type_uint16,
+	type_uint32,
+	type_uint64,
+	type_int8,
+	type_uint8,
+	type_count //This must be the last entry. It's a marker for the number of possible inputs
+};
+
+typedef struct
+{
+	float x<name="X">;
+	float y<name="Y">;
+	float z<name="Z">;
+} vector3_t<read=fn_Read_Vector3_t>;
+
+typedef struct
+{
+	vector3_t min<name="min">;
+	vector3_t max<name="max">;
+} bbox_t<read=fn_Read_BBox>;
+
+string fn_Read_BBox(bbox_t &bbox)
+{
+	string s;
+	return SPrintf(s, "min_xyz: %6.2f, %6.2f, %6.2f | max_xyz: %6.2f, %6.2f, %6.2f", bbox.min.x, bbox.min.y, bbox.min.z, bbox.max.x, bbox.max.y, bbox.max.z);
+}
+
+string fn_Read_Vector3_t(vector3_t &vec3)
+{
+	string s;
+	return SPrintf(s, "xyz: %6.6f, %6.6f, %6.6f", vec3.x, vec3.y, vec3.z);
+}
+
+typedef struct
+{
+	chunk_type_t type<name="Chunk Type">;
+	uint size<name="Chunk Size">;
+  local int pos = FTell();
+  
+	switch(type)
+	{
+		case "Meta":
+		{
+			string associated_channel<name="Associated Channel">; //When specified will usually indicate what the intent of channel data per particle is ultimately used for as the following 'value_name' will likely be 'Interpretation'
+			string value_name<name="Value Name">;
+			int value_type<name="Value Type", read=fn_Read_Value_Type>;
+			//For 'Meta' chunks there are some 'default' name/value pair
+			//'types' based on the 'name' of the pair.
+			//eg.
+			// 'LengthUnitInMeters' , A float64 representing the length unit used by the file, in terms of meters.
+			// 'CoordSys' , A int32 representing the handedness and up vector of the coordinate system used by 3D data.
+			// 'BoundBox' , A float32[6] bounding box of the file's particle data, stored {Min_x, Min_y, Min_z, Max_x, Max_y, Max_z}.
+
+			if (value_name == "LengthUnitInMeters")
+			{
+					double value<name="Value", read=fn_Read_Double>;
+			}
+			else if (value_name == "CoordSys")
+			{
+					int value<name="Value", read=fn_Read_Value_CoordSys>;
+			}
+			else if (value_name == "BoundBox")
+			{
+					bbox_t value<name="Value">;
+			}
+			else
+			{
+				switch (value_type)
+				{
+					case type_string:
+					{
+						string value<name="Value">;
+						break;
+					}
+					case type_int16:
+					{
+						int16 value<name="Value">;
+						break;
+					}
+					case type_int32:
+					{
+						int32 value<name="Value">;
+						break;
+					}
+					case type_int64:
+					{
+						int64 value<name="Value">;
+						break;
+					}
+					case type_float16:
+					{
+						hfloat value<name="Value", read=fn_Read_Half>;
+						break;
+					}
+					case type_float32:
+					{
+						float value<name="Value", read=fn_Read_Float>;
+						break;
+					}
+					case type_float64:
+					{
+						double value<name="Value", read=fn_Read_Double>;
+						break;
+					}
+					case type_uint16:
+					{
+						uint16 value<name="Value">;
+						break;
+					}
+					case type_uint32:
+					{
+						uint32 value<name="Value">;
+						break;
+					}
+					case type_uint64:
+					{
+						uint64 value<name="Value">;
+						break;
+					}
+					case type_int8:
+					{
+						byte value<name="Value">;
+						break;
+					}
+					case type_uint8:
+					{
+						ubyte value<name="Value">;
+						break;
+					}
+				}
+			}
+			break;	
+		}
+		case "Stop":
+		{
+			//The 'type' and the 'size' have already been read and the 'size' should always
+			//be 'zero' so the next chunk will start immediately after this...
+			break;
+		}
+		default:
+		{
+        Warning("Chunk '%s' unrecognized. Skipping...", type);
+        FSkip(size);
+		}
+	}
+} chunk_t <read=fn_Read_Chunk>;
+
+typedef struct
+{
+	channel_name_t name<name="Name", read=fn_Read_Channel_Name>;
+	int32 data_type<name="Data Type", read=fn_Read_Channel_Data_Type>;
+	int32 value_count<name="Value Count">;
+	int32 offset<name="Offset">;
+} channel_t<read=fn_Read_Channel>;
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+string fn_Read_Channel(channel_t &chan)
+{
+	string s;
+	return chan.name;
+	return SPrintf(s, "%s %u %u %u", chan.name, chan.data_type, chan.value_count, chan.offset);
+}
+
+uint fn_Jenkins_Hash(string s, int upper)
+{
+	if (Strlen(s) == 0)
+		return 0;
+	if (upper)
+		s = ToUpper(s);
+
+	int hash = 0;
+	int len = Strlen(s);
+	for (i = 0; i < len; i++)
+	{
+		hash += s[i];
+		hash += (hash << 10);
+		hash ^= (hash >> 6);
+	}
+	hash += (hash << 3);
+	hash ^= (hash >> 11);
+	hash += (hash << 15);
+	return (unsigned int)hash;
+}
+
+string fn_Read_Value_Type(int &t)
+{
+	if (t > type_count || t < type_string)
+		return "Unknown Value Type";
+	switch (t)
+	{
+		case type_string:
+		{
+			return "String";
+		}
+		case type_int16:
+		{
+			return "Int16";
+		}
+		case type_int32:
+		{
+			return "Int32";
+		}
+		case type_int64:
+		{
+			return "Int64";
+		}
+		case type_float16:
+		{
+			return "Float16";
+		}
+		case type_float32:
+		{
+			return "Float32";
+		}
+		case type_float64:
+		{
+			return "Float64";
+		}
+		case type_uint16:
+		{
+			return "UInt16";
+		}
+		case type_uint32:
+		{
+			return "UInt32";
+		}
+		case type_uint64:
+		{
+			return "UInt64";
+		}
+		case type_int8:
+		{
+			return "Int8";
+		}
+		case type_uint8:
+		{
+			return "UInt8";
+		}
+	}
+}
+
+string fn_Read_Value_CoordSys(int &coordsys)
+{
+	switch (coordsys)
+	{
+		case 0:
+			return "Unspecified (default)";
+		case 1:
+			return "right handed Y-up";
+		case 2:
+			return "right handed Z-up";
+		case 3:
+			return "left handed Y-up";
+		case 4:
+			return "left handed Z-up";
+		default:
+			return "Unspecified (default)";
+	}
+}
+
+string fn_Read_Half(hfloat &val)
+{
+	string s;
+	return SPrintf(s, "%6.6f", val);
+}
+
+string fn_Read_Float(float &val)
+{
+	string s;
+	return SPrintf(s, "%6.6f", val);
+}
+
+string fn_Read_Double(double &val)
+{
+	string s;
+	return SPrintf(s, "%6.6f", val);
+}
+
+string fn_Read_Channel_Name(channel_name_t &name)
+{
+	string s;
+	return SPrintf(s, "%s", name);
+}
+
+string fn_Read_Channel_Data_Type(int32 &t)
+{
+	if (t > type_count || t < type_int16)
+		return "Unknown Type";
+	switch (t)
+	{
+		case type_int16:
+		{
+			return "Int16";
+		}
+		case type_int32:
+		{
+			return "Int32";
+		}
+		case type_int64:
+		{
+			return "Int64";
+		}
+		case type_float16:
+		{
+			return "Float16";
+		}
+		case type_float32:
+		{
+			return "Float32";
+		}
+		case type_float64:
+		{
+			return "Float64";
+		}
+		case type_uint16:
+		{
+			return "UInt16";
+		}
+		case type_uint32:
+		{
+			return "UInt32";
+		}
+		case type_uint64:
+		{
+			return "UInt64";
+		}
+		case type_int8:
+		{
+			return "Int8";
+		}
+		case type_uint8:
+		{
+			return "UInt8";
+		}
+	}
+}
+
+string fn_Read_Chunk(chunk_t &chunk)
+{
+	string s;
+	if (chunk.type == "Meta")
+	{
+		//s += "Meta ";
+		if (Strlen(chunk.associated_channel) > 0)
+		{
+			s += chunk.associated_channel + " ";
+		}
+		s += chunk.value_name + " ";
+	}
+	else if (chunk.type == "Stop")
+	{
+		return "Stop";
+	}
+	return s;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+LittleEndian();
+
+header_t header<name="Header">;
+local int pos = FTell();
+while(FTell() < header.header_and_chunk_section_size)
+{
+	chunk_t chunk<name="Chunk">;
+}
+int32 reserved<name="Reserved (Always 4)">;
+int32 channel_count<name="Channel Count">;
+int32 channel_length<name="Channel Length">;
+local int32 i;
+for (i = 0; i < channel_count; i++)
+{
+	channel_t channel<name="Channel">;
+}
+
+//So...
+//The above 'channels' are a layout of the per particle data
+//from here to the 'End of File'
+
+
+
+
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
