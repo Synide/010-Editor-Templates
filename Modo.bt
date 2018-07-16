@@ -8,9 +8,9 @@
 //--------------------------------------
 
 
-// 15-01-2018 - Synide - Added 'APPV' chunk processing
-// 21-02-2018 - Synide - Added 'IASS' Chunk processing
-// 21-02-2018 - Synide - Added 'ITEM.VNAM' sub chunk processing
+// 15-01-2018 - synide@rocketmail.com - Added 'APPV' chunk processing
+// 21-02-2018 - synide@rocketmail.com - Added 'IASS' Chunk processing
+// 21-02-2018 - synide@rocketmail.com - Added 'ITEM.VNAM' sub chunk processing
 
 
 local int haveValidFormat = false;
@@ -121,7 +121,7 @@ switch (header.ifftype)
         break;
     case "LXPM":
         break;
-    case "SYOB":
+    case "SYOB": //Processes my own 'SYOB' flavour IFF modo like files
         break;
     default:
         Warning( "File is not a recognised modo file. Template stopped." );

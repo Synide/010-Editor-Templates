@@ -1,11 +1,14 @@
 // 010 Editor Template for Forgelight DME files
 // from Planetside 2
+// synide@rocketmail.com
+// July, 2018
+
 
 typedef struct
 {
-	float x;
-	float y;
-	float z;
+	float x<name="X">;
+	float y<name="Y">;
+	float z<name="Z">;
 } vector3_t<read=fn_Read_Vector3_t>;
 
 typedef struct
@@ -83,8 +86,8 @@ typedef struct
 typedef struct
 {
 	vector3_t				position<name="Position">;
-	ubyte4n_t				blendweight<name="BlendWeight">;
-	d3dcolor_t			blendindices<name="BlendIndices">;
+	ubyte4n_t				blendweight<name="BlendWeight", read=fn_Read_BlendWeight>;
+	d3dcolor_t			blendindices<name="BlendIndices", read=fn_Read_BlendIndices>;
 } character_layout_0_t;
 
 typedef struct
@@ -124,8 +127,8 @@ typedef struct
 
 typedef struct
 {
-	ushort					bone_index;
-	ushort					global_index;
+	ushort					bone_index<name="Bone Index">;
+	ushort					global_index<name="Global Index">;
 } bone_map_entry_t;
 
 typedef struct
@@ -152,7 +155,7 @@ typedef struct
 	uint													index_size<name="Index Size">;
 	uint													index_count<name="Index Count">;
 	uint													vertex_count<name="Vertex Count">;
-	
+
 	typedef struct
 	{
 		uint												bytes_per_vertex<name="BytesPerVertex">;
@@ -185,8 +188,22 @@ typedef struct
 	} bone_maps_t;
 	
 	bone_maps_t									bonemaps<name="Bonemaps">;
-	uint												transform_count<name="Transform_Count">;
+	uint												transform_count<name="Transform Count">;
 	transform_t									transforms[transform_count]<name="Transforms">;
+	
+	typedef struct
+	{
+		aabb_t											transform_bbox[transform_count]<name="Transform BBox">;
+	} transform_bboxs_t;
+	
+	transform_bboxs_t						transform_bboxs<name="Transform BBox's">;
+	
+	typedef struct
+	{
+		uint											bone_name_hash[transform_count]<name="Bone Name Hash">;
+	} bone_name_hash_t;
+	
+	bone_name_hash_t						bone_name_hashs<name="Bone Name Hash's">;
 } mesh4_t;
 
 
@@ -241,6 +258,23 @@ string fn_Read_Vector3_t(vector3_t &vec3)
 	SPrintf(s, "xyz: %6.6f, %6.6f, %6.6f", vec3.x, vec3.y, vec3.z);
 	return s;
 }
+
+string fn_Read_BlendWeight(ubyte4n_t &weights)
+{
+	string s;
+	float x = (float)weights.x / 255.0f;
+	float y = (float)weights.y / 255.0f;
+	float z = (float)weights.z / 255.0f;
+	float w = (float)weights.w / 255.0f;
+	return SPrintf(s, "xyzw: %6.6f, %6.6f, %6.6f, %6.6f", x, y, z, w);
+}
+
+string fn_Read_BlendIndices(d3dcolor_t &indices)
+{
+	string s;
+	return SPrintf(s, "%u, %u, %u, %u", indices.a, indices.r, indices.g, indices.b);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -266,3 +300,6 @@ else
 	Warning( "Only able to process version 3 & 4 types of DME files." );
 	return -1;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////

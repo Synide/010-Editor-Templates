@@ -40,6 +40,13 @@ typedef struct
 
 typedef struct
 {
+	hfloat r<name="R">;
+	hfloat g<name="G">;
+	hfloat b<name="B">;
+} color_t;
+
+typedef struct
+{
 	vector3_t min<name="min">;
 	vector3_t max<name="max">;
 } bbox_t<read=fn_Read_BBox>;
@@ -177,6 +184,16 @@ typedef struct
 	int32 value_count<name="Value Count">;
 	int32 offset<name="Offset">;
 } channel_t<read=fn_Read_Channel>;
+
+typedef struct
+{
+	vector3_t position<name="Position">;
+	vector3_t velocity<name="Velocity">;
+	color_t color<name="Color">;
+	double density<name="Density">;
+	int32 id<name="ID">;
+	int32 emitterid<name="EmitterID">;
+} particle_t;
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -405,9 +422,12 @@ for (i = 0; i < channel_count; i++)
 //The above 'channels' are a layout of the per particle data
 //from here to the 'End of File'
 
-
-
-
+//particle_t particle[header.particle_count]<name="Particle">;
+//local int32 j;
+//for (j = 0; j < header.particle_count; j++)
+//{
+//	
+//}
 
 
 
