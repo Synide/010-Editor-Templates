@@ -1524,7 +1524,7 @@ typedef struct
 string fn_Read_ITEM_UIDX(ITEM_UIDX_SUBCHUNK &uidx)
 {
 	string s;
-	return SPrintf(s, "%u", uidx.index);
+	return SPrintf(s, "%i", uidx.index);
 }
 
 // GRAD subchunk
