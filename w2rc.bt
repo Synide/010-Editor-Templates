@@ -1,0 +1,444 @@
+// 010 Editor Template for RedEngine 3 W2RC files
+// from Witcher 3
+// synide@rocketmail.com
+// July, 2018
+
+
+typedef struct
+{
+	byte											magic[4]<name="Magic", fgcolor=cRed>;
+	uint											version<name="Version">;
+	uint											flags<name="Flags">;
+	uint											date<name="Date">;
+	uint											time<name="Time">;
+	uint											build_version<name="Build Version">;
+	uint											w2rc_size<name="W2RC Size">;
+	uint											buffersize<name="Buffersize">;
+	uint											file_crc<name="File CRC">;
+	uint											chunk_count<name="Chunk Count">;
+} header_t;
+
+typedef struct
+{
+	uint											chunk_offset<name="Chunk Offset">;
+	uint											chunk_size<name="Chunk Size">;
+	uint											chunk_crc<name="Chunk CRC">;
+} chunk_header_t;
+
+typedef struct
+{
+	uint											offset<name="Offset">;
+	uint											crc<name="CRC">;
+} string_header_t;
+
+typedef struct
+{
+	string										str<name="String">;
+} string_t;
+
+typedef struct
+{
+	uint											offset<name="Offset">;
+	uint											filetype<name="Filetype">;
+	uint											flags<name="Flags">;
+} handle_header_t;
+
+typedef struct
+{
+	uint											unknown1<name="Unknown1">;
+	uint											unknown2<name="Unknown2">;
+	uint											unknown3<name="Unknown3">;
+	uint											unknown4<name="Unknown4">;
+} block4_header_t;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+typedef struct
+{
+	float x<name="X">;
+	float y<name="Y">;
+	float z<name="Z">;
+} vector3_t<read=fn_Read_Vector3_t>;
+
+typedef struct
+{
+	vector3_t min<name="min">;
+	vector3_t max<name="max">;
+} aabb_t<read=fn_Read_AABB>;
+
+typedef struct
+{
+	string										texture<name="Texture">;
+} texture_t;
+
+typedef struct
+{
+	uint											semantic_hash;
+	uint											d3dxparameter_class;
+	uint											d3dxparameter_type;
+	uint											data_length;
+	byte											data[data_length];
+} material_parameter_t;
+
+typedef struct
+{
+	uint											name_hash<name="Name Hash">;
+	uint											materials_length<name="Materials Length">;
+	uint											material_definition_hash<name="Material Definition Hash">;
+	uint											parameter_count<name="Parameter Count">;
+	material_parameter_t			parameters[parameter_count]<name="Parameters", optimize=false>;
+} material_t;
+
+typedef struct
+{
+	byte											magic[4]<name="Magic", fgcolor=cRed>;
+	uint											version<name="Version">;
+	uint											textures_length<name="Textures Length">;
+  local uint tx_start_offset = FTell();
+  while(FTell() < tx_start_offset + textures_length)
+  {
+    texture_t								texture<name="Texture">;
+  };
+	uint											material_count<name="Material Count">;
+	material_t								materials[material_count]<name="Materials", optimize=false>;
+} dmat_t;
+
+///////////////////////////////////////////////////////////////////////////////////////////
+//
+//					VERTEX STREAM LAYOUT STURCTURES
+//
+///////////////////////////////////////////////////////////////////////////////////////////
+
+typedef struct
+{
+	ubyte					x;
+	ubyte					y;
+	ubyte					z;
+	ubyte					w;
+} ubyte4n_t;
+
+typedef struct
+{
+	ubyte					a;
+	ubyte					r;
+	ubyte					g;
+	ubyte					b;
+} d3dcolor_t;
+
+typedef struct
+{
+	vector3_t				position<name="Position">;
+	ubyte4n_t				blendweight<name="BlendWeight", read=fn_Read_BlendWeight>;
+	d3dcolor_t			blendindices<name="BlendIndices", read=fn_Read_BlendIndices>;
+} character_layout_0_t;
+
+typedef struct
+{
+	hfloat					u<name="U">;
+	hfloat					v<name="V">;
+} uv_t;
+
+typedef struct
+{
+	ubyte4n_t				tangent<name="Tangent">;
+	ubyte4n_t				binormal<name="Binormal">;
+	uv_t						uv0<name="UV0">;
+	uv_t						uv1<name="UV1">;
+	uv_t						uv2<name="UV2">;
+} character_layout_1_t;
+
+typedef struct
+{
+	ushort					vert_index_0<name="Vert0">;
+	ushort					vert_index_1<name="Vert1">;
+	ushort					vert_index_2<name="Vert2">;
+} triangle_t;
+
+typedef struct
+{
+	uint						unknown_1<name="Unknown_1">;
+	uint						bone_start<name="Bone Start">;
+	uint						bone_count<name="Bone Count">;
+	uint						delta<name="Delta">;
+	uint						unknown_2<name="Unknown_2">;
+	uint						vertex_offset<name="Vertex Offset">;
+	uint						vertex_count<name="Vertex Count">;
+	uint						index_offset<name="Index Offset">;
+	uint						index_count<name="Index Count">;
+} drawcall_t;
+
+typedef struct
+{
+	ushort					bone_index<name="Bone Index">;
+	ushort					global_index<name="Global Index">;
+} bone_map_entry_t;
+
+typedef struct
+{
+	vector3_t						row1<name="Row1">;
+	vector3_t						row2<name="Row2">;
+	vector3_t						row3<name="Row3">;
+	vector3_t						row4<name="Row4">;
+} transform_t;
+
+
+typedef struct
+{
+	
+} mesh3_t;
+
+typedef struct
+{
+	uint													material_index<name="Material Index">;
+	uint													drawcall_count<name="Drawcall Count">;
+	uint													bone_transform_count<name="Bone Transform Count">;
+	uint													unknown<name="Unknown">;
+	uint													vertex_stream_count<name="Vertex Stream Count">;
+	uint													index_size<name="Index Size">;
+	uint													index_count<name="Index Count">;
+	uint													vertex_count<name="Vertex Count">;
+
+	typedef struct
+	{
+		uint												bytes_per_vertex<name="BytesPerVertex">;
+		character_layout_0_t				verts[vertex_count]<name="Verts", optimize=false>;
+	} character_stream_0_t;
+
+	character_stream_0_t																				stream0<name="Stream0">;
+
+	typedef struct
+	{
+		uint												bytes_per_vertex<name="BytesPerVertex">;
+		character_layout_1_t				verts[vertex_count]<name="Verts", optimize=false>;
+	} character_stream_1_t;
+
+	character_stream_1_t																				stream1<name="Stream1">;
+
+	typedef struct
+	{
+		triangle_t									faces[index_count / 3]<name="Triangles">;
+	} triangles_t;
+	
+	triangles_t																									faces<name="Faces">;
+	uint													draw_call_count<name="Drawcall Count">;
+	drawcall_t										drawcall<name="Drawcall">;
+	uint													bone_map_entry_count<name="Bonemap Entry Count">;
+	
+	typedef struct
+	{
+		bone_map_entry_t																					bonemap[bone_map_entry_count]<name="Bonemap", optimize=false>;
+	} bone_maps_t;
+	
+	bone_maps_t									bonemaps<name="Bonemaps">;
+	uint												transform_count<name="Transform Count">;
+	transform_t									transforms[transform_count]<name="Transforms">;
+	
+	typedef struct
+	{
+		aabb_t											transform_bbox[transform_count]<name="Transform BBox">;
+	} transform_bboxs_t;
+	
+	transform_bboxs_t						transform_bboxs<name="Transform BBox's">;
+	
+	typedef struct
+	{
+		uint											bone_name_hash[transform_count]<name="Bone Name Hash">;
+	} bone_name_hash_t;
+	
+	bone_name_hash_t						bone_name_hashs<name="Bone Name Hash's">;
+} mesh4_t;
+
+
+typedef struct
+{
+	aabb_t																											aabb<name="AABB">;
+	uint																												mesh_count<name="Mesh Count">;
+	mesh4_t																											mesh<name="Mesh">;
+} model4_t;
+
+
+
+
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+uint fn_Jenkins_Hash(string s, int upper)
+{
+	if (Strlen(s) == 0)
+		return 0;
+	if (upper)
+		s = ToUpper(s);
+
+	int hash = 0;
+	int len = Strlen(s);
+	for (i = 0; i < len; i++)
+	{
+		hash += s[i];
+		hash += (hash << 10);
+		hash ^= (hash >> 6);
+	}
+	hash += (hash << 3);
+	hash ^= (hash >> 11);
+	hash += (hash << 15);
+	return (unsigned int)hash;
+}
+
+string fn_Read_AABB(aabb_t &aabb)
+{
+	string s;
+	SPrintf(s, "min_xyz: %6.2f, %6.2f, %6.2f | max_xyz: %6.2f, %6.2f, %6.2f", aabb.min.x, aabb.min.y, aabb.min.z, aabb.max.x, aabb.max.y, aabb.max.z);
+	return s;
+}
+
+string fn_Read_Vector3_t(vector3_t &vec3)
+{
+	string s;
+	SPrintf(s, "xyz: %6.6f, %6.6f, %6.6f", vec3.x, vec3.y, vec3.z);
+	return s;
+}
+
+string fn_Read_BlendWeight(ubyte4n_t &weights)
+{
+	string s;
+	float x = (float)weights.x / 255.0f;
+	float y = (float)weights.y / 255.0f;
+	float z = (float)weights.z / 255.0f;
+	float w = (float)weights.w / 255.0f;
+	return SPrintf(s, "xyzw: %6.6f, %6.6f, %6.6f, %6.6f", x, y, z, w);
+}
+
+string fn_Read_BlendIndices(d3dcolor_t &indices)
+{
+	string s;
+	return SPrintf(s, "%u, %u, %u, %u", indices.a, indices.r, indices.g, indices.b);
+}
+
+string fn_Read_string_t(string_t &s)
+{
+//	string t;
+//	return SPrintf(t, "%s", s);
+	return s.str;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+LittleEndian();
+
+
+
+
+
+
+header_t												header<name="Header">;
+chunk_header_t									chunk_headers[10]<name="Chunk Headers">;
+
+local uint pos = FTell();
+local uint string_buffer_start = chunk_headers[0].chunk_offset;
+
+
+////// Chunk 2
+////// Strings Chunk
+//////
+
+local uint string_header_start = chunk_headers[1].chunk_offset;
+local uint string_header_count = chunk_headers[1].chunk_size;
+
+FSeek(string_header_start);
+string_header_t									string_headers[string_header_count]<name="String Headers">;
+FSeek(string_buffer_start);
+
+typedef struct
+{
+	local uint i;
+	for (i = 0; i < string_header_count; i++)
+	{
+		string_t										s<name="String", read=fn_Read_string_t>;
+	}
+} strings_t;
+
+strings_t												strings<name="Strings">;
+
+////// Chunk 3
+////// Handles Chunk
+//////
+
+local uint handle_headers_start = chunk_headers[2].chunk_offset;
+local uint handle_headers_count = chunk_headers[2].chunk_size;
+
+FSeek(handle_headers_start);
+handle_header_t								handle_headers[handle_headers_count]<name="Handle Headers">;
+FSeek(string_buffer_start);
+
+typedef struct
+{
+	local uint i;
+	for (i = 0; i < handle_headers_count; i++)
+	{
+		string_t										s<name="String", read=fn_Read_string_t>;
+	}
+} handle_strings_t;
+
+handle_strings_t								handles<name="Handles">;
+
+////// Chunk 4
+////// Unknown Usage Chunk
+//////
+
+local uint block4_headers_start = chunk_headers[3].chunk_offset;
+local uint block4_headers_count = chunk_headers[3].chunk_size;
+
+FSeek(block4_headers_start);
+block4_header_t								block4_headers[block4_headers_count]<name="Block4 Headers">;
+FSeek(string_buffer_start);
+
+typedef struct
+{
+	local uint i;
+	for (i = 0; i < block4_headers_count; i++)
+	{
+		string_t										s<name="String", read=fn_Read_string_t>;
+	}
+} block4_strings_t;
+
+block4_strings_t								block4_strings<name="Block4 Strings">;
+
+////// Chunk 5
+////// 
+//////
+
+local uint block5_headers_start = chunk_headers[4].chunk_offset;
+local uint block5_headers_count = chunk_headers[4].chunk_size;
+
+FSeek(block5_headers_start);
+
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////

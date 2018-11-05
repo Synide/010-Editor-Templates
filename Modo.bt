@@ -1,17 +1,15 @@
 //--------------------------------------
 //--- 010 Editor v3.0.5 Binary Template
 //
-// File: modo .lx* template parser
-// Author: Gwynne Reddick
-// Revision: 1.00
-// Purpose: Reads all known chunks in modo *.lxo, *.lxp. *.lxe and *.lxl files
-//--------------------------------------
-
-
-// 15-01-2018 - synide@rocketmail.com - Added 'APPV' chunk processing
-// 21-02-2018 - synide@rocketmail.com - Added 'IASS' Chunk processing
-// 21-02-2018 - synide@rocketmail.com - Added 'ITEM.VNAM' sub chunk processing
-
+// File: Modo.bt
+// Author: Gwynne Reddick (Original version), Simon Beetham (This version)
+// Version: 1.00
+// Purpose: Reads all known chunks in modo *.lxo, *.lxp. *.lxe and *.lxl files as documented at
+//          http://sdk.luxology.com/wiki/File_Formats
+// Category: 3D File Formats
+// File Mask: *.lx?
+// History:
+//   1.00  2018-11-05 Simon Beetham: Original version provided by Gwynne Reddick back in 2014 significantly altered, amended as per url above
 
 local int haveValidFormat = false;
 local ulong numTriSurfVerts; // stores num of verts in 3SRF chunk for use by VRTS chunk
@@ -124,7 +122,7 @@ switch (header.ifftype)
     case "SYOB": //Processes my own 'SYOB' flavour IFF modo like files
         break;
     default:
-        Warning( "File is not a recognised modo file. Template stopped." );
+        Warning( "File is not a recognised modo file. Template stopped. Contact synide@rocketmail.com" );
         return -1;
 }
 
