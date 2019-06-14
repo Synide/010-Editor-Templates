@@ -1,15 +1,20 @@
-//--------------------------------------
+//------------------------------------------------
 //--- 010 Editor v3.0.5 Binary Template
 //
-// File: Modo.bt
-// Author: Gwynne Reddick (Original version), Simon Beetham (This version)
-// Version: 1.00
-// Purpose: Reads all known chunks in modo *.lxo, *.lxp. *.lxe and *.lxl files as documented at
-//          http://sdk.luxology.com/wiki/File_Formats
-// Category: 3D File Formats
+//      File: Modo.bt
+//   Authors: Gwynne Reddick (Original version), Simon Beetham (This version)
+//   Version: 1.3
+//   Purpose: Reads all known chunks in Modo *.lxo, *.lxp. *.lxe and *.lxl 3D files as documented at
+//            http://sdk.luxology.com/wiki/File_Formats.
+//  Category: CAD
 // File Mask: *.lx?
+//  ID Bytes: 46 4F 52 4D //FORM
 // History:
-//   1.00  2018-11-05 Simon Beetham: Original version provided by Gwynne Reddick back in 2014 significantly altered, amended as per url above
+//   1.3  2019-06-05 Simon Beetham: Add ITEM.BCHN subchunk processing & DATA Chunk processing.
+//   1.2  2019-02-06 Simon Beetham: Altered ACTN.CHNS display of Channel names. Added 'SEAM' vmap type. Made Unique vmap processing for each type. Fixed ACTN.GRAD name display.
+//   1.1  2018-11-16 Simon Beetham: Corrected display of point & poly indexing on vmap, vmad & vmed chunks where variable sized index's apply. Corrected display of item name where ITEM.VNAM sub-chunks don't exist in .lxp's
+//   1.0  2018-11-05 Simon Beetham: Original version provided by Gwynne Reddick back in 2014 significantly altered, amended as per url above
+//------------------------------------------------
 
 local int haveValidFormat = false;
 local ulong numTriSurfVerts; // stores num of verts in 3SRF chunk for use by VRTS chunk
@@ -60,11 +65,12 @@ struct AANI_CHUNK;
 struct BAKE_CHUNK;
 struct APPV_CHUNK;
 struct IASS_CHUNK;
+struct DATA_CHUNK;
 
 // misc
 struct RGBA;
 struct POINT_t;
-struct VERTINDEX_t;
+struct PointIndex_t;
 struct VERTDATA;
 
 // unrecognized chunk/subchunk
@@ -91,6 +97,12 @@ enum {              // Item Data Types
     LXEnvelopeType_Float        = 0,
     LXEnvelopeType_Int          = 1,
 };
+
+typedef struct
+{
+	float u<name="U">;
+	float v<name="V">;
+} uv_t;
 
 
 
@@ -201,7 +213,7 @@ while(!FEof())
             VMAD_CHUNK   VMAD;
             break;
         case "VMED":
-            VMAD_CHUNK   VMAD;
+            VMED_CHUNK   VMED;
             break;
         case "PTAG":
             PTAG_CHUNK   PTAG;
@@ -247,6 +259,10 @@ while(!FEof())
         case "IASS":
 	        	IASS_CHUNK	IASS;
 	        	break;
+	        	//SB 05-Jun-2019 - Added DATA Chunk processing
+	      case "DATA":
+	      		DATA_CHUNK	DATA;
+	      		break;
         default:
             // Unknown chunk
             if ( FTell() < header.size )
@@ -486,14 +502,25 @@ typedef struct
     // Padding so the next chunk starts on an even byte
     if( (size & 1) && (FTell() < FileSize()) )
         uchar padding <hidden=true>;
-} ITEM_CHUNK <read=fn_Read_ITEM, name="ITEM">;
+} ITEM_CHUNK <name="ITEM", read=fn_Read_ITEM>;
 
 string fn_Read_ITEM(ITEM_CHUNK &chunk)
 {
     string s;
     string name = chunk.username;
     if (Strlen(chunk.username) == 0)
-    	name = chunk.VNAM[0].name;
+  	{
+  		if (exists(chunk.VNAM))
+  		{
+				if (Strlen(chunk.VNAM[0].name) != 0)
+					name = chunk.VNAM[0].name;
+  		}
+  		else
+  		{
+  			if (exists(chunk.UNIQ))
+  				name = chunk.UNIQ[0].identifier;
+  		}
+  	}
     return SPrintf(s, "Type: '%s' Name: '%s'", chunk.type, name);
 }
 
@@ -545,18 +572,18 @@ typedef struct
     ID              chunkID<name="ChunkID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     local int       pos = FTell();
-    string          name<name="Name   ">;
+    string          name<name="Name">;
     if (sizeof(name) & 1)
         uchar padding <hidden=true>;
 
-    string          type<name="Type   ">;
+    string          type<name="Type">;
     if (sizeof(type) & 1)
         uchar padding <hidden=true>;
 
     ulong           identifier<name="Identifier">;
     //ushort   flags;
     local int subchunks = FTell();
-    while( FTell() - pos < size )
+    while(FTell() - pos < size)
         fn_Read_ACTN_Subchunks(subchunks);
 
     // Padding so the next chunk starts on an even byte
@@ -724,6 +751,23 @@ string fn_Read_PNTS(PNTS_CHUNK &pnts)
     return SPrintf( s, "%d", pnts.size/12 );
 }
 
+typedef struct
+{
+    local ushort tmpindex = ReadUShort(FTell());
+    if (tmpindex < 0xFF00)
+        ushort  index;
+    else
+        ulong   index;
+} PointIndex_t<name="Index", read=fn_Read_PointIndex>;
+
+typedef struct
+{
+    local ushort tmpindex = ReadUShort(FTell());
+    if (tmpindex < 0xFF00)
+        ushort  index;
+    else
+        ulong   index;
+} PolyIndex_t<name="Index", read=fn_Read_PolyIndex>;
 
 // BBOX chunk
 typedef struct
@@ -757,6 +801,17 @@ typedef struct
         uchar padding <hidden=true>;
 } VMPA_CHUNK <name="VMPA">;
 
+typedef struct
+{
+	PointIndex_t pointIndex<name="PointIndex">;
+	uv_t uv<name="UV">;
+} VMAP_TXUV_t<name="UV", read=fnRead_TXUV>;
+
+string fnRead_TXUV(VMAP_TXUV_t &txuv)
+{
+	string s;
+	return SPrintf(s, "Point: %u, UV: %f, %f", txuv.pointIndex.index, txuv.uv.u, txuv.uv.v);
+}
 
 // VMAP chunk
 
@@ -765,24 +820,76 @@ typedef struct
     ID              chunkID<name="ChunkID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     local int       pos = FTell();
-    ID              type<name="Map Type   ">;
+    ID              type<name="Type">;
     ushort          dimension<name="Dimension">;
-    string          name<name="Name   ">;
+    string          name<name="Name">;
     if (sizeof(name) & 1)
         uchar padding <hidden=true>;
-    typedef struct
+
+    //1-Mar-2019 - Make type specific varaints for the different Disco map types
+    
+    switch(type)
     {
-        local ushort tmpIndex;
-        tmpIndex = ReadUShort(FTell());
-        if (tmpIndex < 0xFF00)
-            ushort  index<name="Index">;
-        else
-            ulong   index<name="Index">;
-        float           values[dimension];
+/*
+    	case "MORF":
+  		{
+  			break;
+  		}
+    	case "NORM":
+  		{
+  			break;
+  		}
+    	case "RGB ":
+  		{
+  			break;
+  		}
+    	case "RGBA":
+  		{
+  			break;
+  		}
+    	case "SPOT":
+  		{
+  			break;
+  		}
+*/
+    	case "TXUV":
+  		{
+		    while(FTell() - pos < size)
+		        VMAP_TXUV_t vmap_txuv_values;
+  			break;
+  		}
+/*    	case "WGHT":
+  		{
+  			break;
+  		}
+    	case "TBAS":
+  		{
+  			break;
+  		}
+*/
+  		default:
+			{
+		    typedef struct
+		    {
+					PointIndex_t index;
+		      float values[dimension]<name="Value(s)">;
+		    } vmap_point_t<name="Point">;
+		    
+		    while(FTell() - pos < size)
+		        vmap_point_t     point;
+ 				break;
+			}
+    }
+        
+/*    typedef struct
+    {
+			PointIndex_t index;
+      float values[dimension]<name="Value(s)">;
     } vmap_point_t<name="Point">;
+    
     while(FTell() - pos < size)
         vmap_point_t     point;
-
+*/
     // Padding so the next chunk starts on an even byte
     if( (size & 1) && (FTell() < FileSize()) )
         uchar padding <hidden=true>;
@@ -803,14 +910,6 @@ typedef struct
     local int       pos = FTell();
     ID              polygon_type<name="PolyType", read=fn_Read_PolyType>;
     
-    typedef struct
-    {
-        local ushort tmpindex = ReadUShort(FTell());
-        if (tmpindex < 0xFF00)
-            ushort  index;
-        else
-            ulong   index;
-    } VERTINDEX_t<name="Index", read=fn_Read_VertIndex>;
 
 		typedef struct
 		{
@@ -823,13 +922,13 @@ typedef struct
       else if ("HCRV" == polygon_type || "BCRV"  == polygon_type)
       {
           ulong flags;
-          VERTINDEX_t vertIndex[nverts] <optimize=false>;
+          PointIndex_t vertIndex[nverts] <optimize=false>;
           break;
       }
       if ("CURV" == polygon_type || "BEZR" == polygon_type)
           if (nverts < 4 || 1 != (nverts % 3))        // Skip invalid bezier curves
               continue;
-      VERTINDEX_t vertIndex[nverts] <optimize=false>;
+      PointIndex_t vertIndex[nverts] <optimize=false>;
 		} POLY_t <name="Poly">;
     
     local uint count = 0;
@@ -845,13 +944,23 @@ typedef struct
         uchar padding <hidden=true>;
 } POLS_CHUNK <name="POLS", read=fn_Read_POLS>;
 
-string fn_Read_VertIndex(VERTINDEX_t &index)
+string fn_Read_PointIndex(PointIndex_t &index)
 {
     string s;
     int i = (int)index.index;
     if (sizeof(index) == 4)
 		{
-			//ULong Index
+			i &= 0x00FFFFFF;
+		}
+    return SPrintf(s, "%i", i);
+}
+
+string fn_Read_PolyIndex(PolyIndex_t &index)
+{
+    string s;
+    int i = (int)index.index;
+    if (sizeof(index) == 4)
+		{
 			i &= 0x00FFFFFF;
 		}
     return SPrintf(s, "%i", i);
@@ -869,20 +978,93 @@ string fn_Read_POLS(POLS_CHUNK &pols)
 	return SPrintf(s, "%u", pols.count);
 }
 
+typedef struct
+{
+	PointIndex_t pointIndex<name="PointIndex">;
+	PolyIndex_t sharedPolyIndex<name="PolyIndex">;
+	POINT_t offset<name="Offset">;
+} Disco_MORF_t<name="Disco_MORF", read=fnRead_Disco_MORF>;
+
+string fnRead_Disco_MORF(Disco_MORF_t &disco)
+{
+	string s;
+	return SPrintf(s, "Point: %u, Poly: %u, Offset_XYZ: %f, %f, %f", disco.pointIndex.index, disco.sharedPolyIndex.index, offset.X, offset.Y, offset.Z);
+}
+
+typedef struct
+{
+	PointIndex_t pointIndex<name="PointIndex">;
+	PolyIndex_t sharedPolyIndex<name="PolyIndex">;
+	uv_t uv<name="UV">;
+} Disco_TXUV_t<name="UV", read=fnRead_Disco_TXUV>;
+
+string fnRead_Disco_TXUV(Disco_TXUV_t &disco)
+{
+	string s;
+	return SPrintf(s, "Point: %u, Poly: %u, UV: %f, %f", disco.pointIndex.index, disco.sharedPolyIndex.index, disco.uv.u, disco.uv.v);
+}
+
 // VMAD chunk
 typedef struct
 {
     ID              chunkID<name="ChunkID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     local int       pos = FTell();
-    ID              type<name="Type   ">;
+    ID              type<name="Type">;
     ushort          dimension<name="Dimension">;
     string          name<name="Name">;
     if (sizeof(name) & 1)
         uchar padding <hidden=true>;
     
-    while( FTell() - pos < size )
-        VERTDATA    data;
+    //1-Mar-2019 - Make type specific varaints for the different Disco map types
+    
+    switch(type)
+    {
+    	case "MORF":
+  		{
+		    while(FTell() - pos < size)
+		        Disco_MORF_t disco;
+  			break;
+  		}
+/*    	case "NORM":
+  		{
+  			break;
+  		}
+    	case "RGB ":
+  		{
+  			break;
+  		}
+    	case "RGBA":
+  		{
+  			break;
+  		}
+    	case "SPOT":
+  		{
+  			break;
+  		}
+*/
+    	case "TXUV":
+  		{
+		    while(FTell() - pos < size)
+		        Disco_TXUV_t disco;
+  			break;
+  		}
+/*    	case "WGHT":
+  		{
+  			break;
+  		}
+    	case "TBAS":
+  		{
+  			break;
+  		}
+*/
+  		default:
+			{
+	 	    while(FTell() - pos < size)
+	        VERTDATA data;
+ 			break;
+			}
+    }
     
     // Padding so the next chunk starts on an even byte
     if( (size & 1) && (FTell() < FileSize()) )
@@ -901,6 +1083,7 @@ typedef struct
 {
     ID              chunkID<name="ChunkID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
+    local int       pos = FTell();
     ID              type<name="Type   ">;
     ushort          dimension<name="Dimension">;
     string          name<name="Name   ">;
@@ -1237,6 +1420,27 @@ typedef struct
 } BAKE_CHUNK <name="BAKE">;
 
 
+//DATA CHUNK
+typedef struct
+{
+    ID              chunkID<name="ChunkID", fgcolor=cRed>;
+    CSIZE           size<name="Size">;
+    ulong           index_id<name="IndexId">;
+    ulong           value_size<name="ValueSize">;
+		string					value_type<name="Value Type">;
+    if (sizeof(value_type) & 1)
+        uchar padding <hidden=true>;
+    if (value_size > 0)
+  	{
+			string value<name="Value">;
+	    if (sizeof(value) & 1)
+	        uchar padding <hidden=true>;
+  	}
+    // Padding so the next chunk starts on an even byte
+    if( (size & 1) && (FTell() < FileSize()) )
+        uchar padding <hidden=true>;
+} DATA_CHUNK <name="DATA">;
+
 //------------------------------------------------------------
 // Item subchunk definitions.
 //------------------------------------------------------------
@@ -1262,25 +1466,6 @@ string fn_Read_ITEM_LINK(ITEM_LINK_SUBCHUNK &link)
     string s;
     return SPrintf(s, "Graph: %s", link.graphName);
 }
-
-
-//enum <ushort> ENUM1{              // Item Data Types
-//    LXItemType_Int              = 0x01,
-//    LXItemType_Float            = 0x02,
-//    LXItemType_String           = 0x03,
-//    LXItemType_Variable         = 0x04,
-//    LXItemType_Envelope         = 0x10,
-//    LXItemType_UndefState       = 0x20,     // undefined action channel
-//
-//    LXItemType_EnvelopeInt      = LXItemType_Envelope | LXItemType_Int,
-//    LXItemType_EnvelopeFloat    = LXItemType_Envelope | LXItemType_Float,
-//    LXItemType_EnvelopeString   = LXItemType_Envelope | LXItemType_String,
-//
-//    LXItemType_FloatAlt         = 0x4e56,   // compatibility with some apps
-//
-//    LXEnvelopeType_Float        = 0,
-//    LXEnvelopeType_Int          = 1,
-//    };
 
 
 // CHNL subchunk
@@ -1797,6 +1982,26 @@ string fn_Read_ITEM_VNAM(ITEM_VNAM_SUBCHUNK &vnam)
 	return SPrintf(s, "%s", vnam.name);
 }
 
+//ITEM_BCHN_SUBCHUNK
+typedef struct
+{
+    ID          			subchunkID<name="Subchunk ID">;
+    SCSIZE      			size<name="Subchunk Size">;
+    string      			name<name="Operation">;
+    unsigned long			data_index_id<name="DataIndexId">;
+    if (sizeof(name) & 1)
+        uchar padding <hidden=true>;
+    // Padding so the next chunk starts on an even byte
+    if( (size & 1) && (FTell() < FileSize()) )
+        uchar padding <hidden=true>;
+} ITEM_BCHN_SUBCHUNK <name="BCHN", read=fn_Read_ITEM_BCHN>;
+
+string fn_Read_ITEM_BCHN(ITEM_BCHN_SUBCHUNK &bchn)
+{
+	string s;
+	return SPrintf(s, "Op: '%s' DataIndex: '%u'", bchn.name, bchn.data_index_id);
+}
+
 //------------------------------------------------------------
 // ENVL subchunk definitions.
 //------------------------------------------------------------
@@ -2005,7 +2210,7 @@ typedef struct
 } ACTN_ITEM_SUBCHUNK<name="ITEM">;
 
 
-// GRAD subchunk
+// ACTN_GRAD_SUBCHUNK
 typedef struct
 {
     ID              subchunkID<name="Subchunk ID">;
@@ -2024,11 +2229,17 @@ typedef struct
     else
         ulong   envelopeIndex<name="Envelope Index">;
     ulong   flags<format=binary>; 
-    if (size > 8) {
-    string          name<name="Name   ">;
+
+	if (header.ifftype != "LXPR")
+    	local string temp_channel_name = CHNM.channel_name[nameIndex].name;
+
+    if (size > 8)
+    {
+    string          name<name="Name">;
     // pad to even byteif needed
     if (sizeof(name) & 1)
         uchar padding <hidden=true>;
+
     if( size > (FTell() - pos) ){
         string  intype<name="In-Type   ">;
         // pad to even byteif needed
@@ -2048,11 +2259,14 @@ typedef struct
 
 string fn_Read_ACTN_GRAD(ACTN_GRAD_SUBCHUNK &grad)
 {
-    return grad.name;
+    if (header.ifftype != "LXPR")
+        return grad.temp_channel_name;
+    else
+  	    return "";
 }
 
 
-// PRNT subchunk
+// ACTN_PRNT_SUBCHUNK
 typedef struct
 {
     ID          subchunkID<name="Subchunk ID">;
@@ -2065,7 +2279,7 @@ typedef struct
 } ACTN_PRNT_SUBCHUNK<name="PRNT">;
 
 
-// CHAN subchunk
+// ACTN_CHAN_SUBCHUNK
 typedef struct
 {
     ID              subchunkID<name="Subchunk ID">;
@@ -2082,7 +2296,8 @@ typedef struct
         ushort      envelopeIndex<name="Envelope Index">;
     else
         ulong       envelopeIndex<name="Envelope Index">;
-    local string temp_channel_name = CHNM.channel_name[nameIndex].name;
+  	if (header.ifftype != "LXPR")
+	    local string temp_channel_name = CHNM.channel_name[nameIndex].name;
     switch (datatype & ~0x20) {
         case 1: 
             int     data<name="Data">;
@@ -2116,11 +2331,13 @@ typedef struct
 
 string fn_Read_ACTN_CHAN(ACTN_CHAN_SUBCHUNK &chan)
 {
-	string s;
-	return SPrintf(s, "%s", chan.temp_channel_name);
+	if (header.ifftype != "LXPR")
+		return chan.temp_channel_name;
+	else
+		return "";
 }
 
-// CHNS subchunk
+// ACTN_CHNS_SUBCHUNK
 typedef struct
 {
     ID              subchunkID<name="Subchunk ID">;
@@ -2129,29 +2346,34 @@ typedef struct
     // pad to even byteif needed
     if (sizeof(channelName) & 1)
         uchar padding <hidden=true>;
-    local ushort    tmpChnlIdx;
-    tmpChnlIdx = ReadUShort(FTell());
-    if (tmpChnlIdx < 0xFF00)
-        ushort  channelIndex<name="Channel Index">;
+    local ushort    tmpChnlNameIdx;
+    tmpChnlNameIdx = ReadUShort(FTell());
+    if (tmpChnlNameIdx < 0xFF00)
+        ushort      nameIndex<name="Channel Name Index">;
     else
-        ulong   channelIndex<name="Channel Index">;
+        ulong       nameIndex<name="Channel Name Index">;
     string          value<name="Value  ">;
     // pad to even byteif needed
     if (sizeof(value) & 1)
         uchar padding <hidden=true>;
     // Padding so the next chunk starts on an even byte
+  	if (header.ifftype != "LXPR")
+	    local string temp_channel_name = CHNM.channel_name[nameIndex].name;
     if( (size & 1) && (FTell() < FileSize()) )
         uchar padding <hidden=true>;
 } ACTN_CHNS_SUBCHUNK<read=fn_Read_ACTN_CHNS, name="CHNS">;
 
 string fn_Read_ACTN_CHNS(ACTN_CHNS_SUBCHUNK &chns)
 {
-    string s;
-    return SPrintf(s, "Name: %s   Value: %s", chns.channelName, chns.value);
+	string s;
+	if (header.ifftype != "LXPR")
+		return SPrintf(s, "Name: %s   Value: %s", chns.temp_channel_name, chns.value);
+	else
+		return SPrintf(s, "Value: %s", chns.value);
 }
 
 
-// CHNN subchunk
+// ACTN_CHNN_SUBCHUNK
 typedef struct
 {
     ID          		subchunkID<name="Subchunk ID">;
@@ -2336,7 +2558,7 @@ typedef struct {
     float   X;
     float   Y;
     float   Z;
-} POINT_t <read=fn_Read_Point, name="Point">;
+} POINT_t <read=fn_Read_Point, name="Point", size=12>;
 
 string fn_Read_Point(POINT_t &point)
 {
@@ -2348,20 +2570,10 @@ string fn_Read_Point(POINT_t &point)
 //used by VMAD and VMED chunks
 typedef struct
 {
-        local ushort tmpIndex;
-        tmpIndex = ReadUShort(FTell());
-        if (tmpIndex < 0xFF00)
-            ushort  indexInPNTS;
-        else
-            ulong   indexInPNTS;
-        local ushort tmpIndex2;
-        tmpIndex2 = ReadUShort(FTell());
-        if (tmpIndex2 < 0xFF00)
-            ushort  indexSharedPoly;
-        else
-            ulong   indexSharedPoly;
+				PointIndex_t pointIndex<name="PointIndex">;
+        PolyIndex_t sharedPolyIndex<name="PolyIndex">;
         if (dimension > 0)
-            float           values[dimension];
+            float           values[dimension]<name="Value(s)">;
 } VERTDATA<name="Vertex Data">;
 
 
@@ -2433,6 +2645,9 @@ void fn_ReadItemSubchunks(int pos)
         case "VNAM":
         		ITEM_VNAM_SUBCHUNK VNAM;
         		break;
+        case "BCHN":
+        		ITEM_BCHN_SUBCHUNK BCHN;
+        		break;
         default:
             size = ReadUInt( FTell()+4 );
             Printf( "Encountered unknown ITEM subchunk '%s' of size %d at position %Ld.\n", tag, size, FTell() );
@@ -2485,7 +2700,7 @@ void fn_Read_ACTN_Subchunks(int pos)
 {
     local ID tag;
     local uint size;
-    ReadBytes( tag, FTell(), 4 );
+    ReadBytes(tag, FTell(), 4);
     // See which chunk this is
     switch(tag)
     {
@@ -2507,7 +2722,9 @@ void fn_Read_ACTN_Subchunks(int pos)
         case "CHNN":
             ACTN_CHNN_SUBCHUNK CHNN;
             break;
-        default:
+/*        case "ALYR":
+        		ACTN_ALYR_SUBCHUNK ALYR;
+*/        default:
             size = ReadUInt( FTell()+4 );
             Printf( "Encountered unknown ACTN subchunk '%s' of size %d at position %Ld.\n", tag, size, FTell() );
             UNKNOWNSUBCHUNK unknown;
