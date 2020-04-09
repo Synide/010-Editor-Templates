@@ -200,30 +200,7 @@ typedef struct
 
 string fn_Read_Channel(channel_t &chan)
 {
-	string s;
 	return chan.name;
-	return SPrintf(s, "%s %u %u %u", chan.name, chan.data_type, chan.value_count, chan.offset);
-}
-
-uint fn_Jenkins_Hash(string s, int upper)
-{
-	if (Strlen(s) == 0)
-		return 0;
-	if (upper)
-		s = ToUpper(s);
-
-	int hash = 0;
-	int len = Strlen(s);
-	for (i = 0; i < len; i++)
-	{
-		hash += s[i];
-		hash += (hash << 10);
-		hash ^= (hash >> 6);
-	}
-	hash += (hash << 3);
-	hash ^= (hash >> 11);
-	hash += (hash << 15);
-	return (unsigned int)hash;
 }
 
 string fn_Read_Value_Type(int &t)

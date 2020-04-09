@@ -3,14 +3,16 @@
 //
 //      File: Modo.bt
 //   Authors: Gwynne Reddick (Original version), Simon Beetham (This version)
-//   Version: 1.3
+//   Version: 1.5
 //   Purpose: Reads all known chunks in Modo *.lxo, *.lxp. *.lxe and *.lxl 3D files as documented at
 //            http://sdk.luxology.com/wiki/File_Formats.
 //  Category: CAD
 // File Mask: *.lx?
 //  ID Bytes: 46 4F 52 4D //FORM
 // History:
-//   1.3  2019-06-05 Simon Beetham: Add ITEM.BCHN subchunk processing & DATA Chunk processing.
+//   1.5  2020-04-09 Simon Beetham: Fixed IASS subchunk processing. Fixed some 'while' processing. Fixed PTAG index display.
+//   1.4  2020-03-26 Simon Beetham: Detailed IASS.FLAT subchunk. Fixed POLS Chunk processing for large vertex index's. Fixed ACTN.ITEM name display processing.
+//   1.3  2019-08-16 Simon Beetham: Altered 'DATA' chunk, redefined IASS chunk, detailed SUBS and XREF chunks.
 //   1.2  2019-02-06 Simon Beetham: Altered ACTN.CHNS display of Channel names. Added 'SEAM' vmap type. Made Unique vmap processing for each type. Fixed ACTN.GRAD name display.
 //   1.1  2018-11-16 Simon Beetham: Corrected display of point & poly indexing on vmap, vmad & vmed chunks where variable sized index's apply. Corrected display of item name where ITEM.VNAM sub-chunks don't exist in .lxp's
 //   1.0  2018-11-05 Simon Beetham: Original version provided by Gwynne Reddick back in 2014 significantly altered, amended as per url above
@@ -65,7 +67,12 @@ struct AANI_CHUNK;
 struct BAKE_CHUNK;
 struct APPV_CHUNK;
 struct IASS_CHUNK;
+struct SUBS_CHUNK;
+struct XREF_CHUNK;
 struct DATA_CHUNK;
+
+//subchunks
+struct UNKNOWNSUBCHUNK;
 
 // misc
 struct RGBA;
@@ -257,12 +264,20 @@ while(!FEof())
             break;
 						//SB - 21-02-2018 - Added IASS Chunk processing
         case "IASS":
-	        	IASS_CHUNK	IASS;
-	        	break;
-	        	//SB 05-Jun-2019 - Added DATA Chunk processing
+        	IASS_CHUNK	IASS;
+        	break;
+						//SB - 16-08-2019 - Added SUBS (Sub Scene/Cinema) Chunk processing
+        case "SUBS":
+        	SUBS_CHUNK	SUBS;
+        	break;
+	        	//SB - 16-08-2019 - Added XREF Chunk processing
+	      case "XREF":
+      		XREF_CHUNK	XREF;
+      		break;
+	        	//SB - 16-08-2019 - Added DATA Chunk processing
 	      case "DATA":
-	      		DATA_CHUNK	DATA;
-	      		break;
+      		DATA_CHUNK	DATA;
+      		break;
         default:
             // Unknown chunk
             if ( FTell() < header.size )
@@ -480,27 +495,23 @@ typedef struct
 {
     ID              chunkID<name="ChunkID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
-    local int       pos = FTell();
+    local uint      chunk_end_pos = FTell() + size;
     string          type<name="Type">;
-    if (sizeof(type) & 1)
-        uchar padding <hidden=true>;
-
-    string          username<name="UserName">;
-    if (sizeof(username) & 1)
-        uchar padding <hidden=true>;
-
-    ulong   id<name="ID">;
-    local int subchunks = FTell();
-    // Read the subchunks
-    while( FTell() - pos < size )
-        fn_ReadItemSubchunks(subchunks);
+								    if (sizeof(type) & 1)
+								        uchar padding <hidden=true>;
+    string          username<name="Username">;
+								    if (sizeof(username) & 1)
+								        uchar padding <hidden=true>;
+    ulong   id<name="ItemID">;
+    while(FTell() < chunk_end_pos)
+        fn_ReadItemSubchunks();
     
     // Unknown data at the end of the chunk
-    if( size > (FTell() - pos) )
-        uchar unknown[ size - (FTell() - pos) ];
+    if(FTell() < chunk_end_pos)
+        uchar unknown[chunk_end_pos - FTell()]<name="UnknownData">;
 
     // Padding so the next chunk starts on an even byte
-    if( (size & 1) && (FTell() < FileSize()) )
+    if((size & 1) && (FTell() < FileSize()))
         uchar padding <hidden=true>;
 } ITEM_CHUNK <name="ITEM", read=fn_Read_ITEM>;
 
@@ -521,7 +532,7 @@ string fn_Read_ITEM(ITEM_CHUNK &chunk)
   				name = chunk.UNIQ[0].identifier;
   		}
   	}
-    return SPrintf(s, "Type: '%s' Name: '%s'", chunk.type, name);
+    return SPrintf(s, "%u    '%s'    '%s'", chunk.id, chunk.type, name);
 }
 
 // ENVL chunk
@@ -530,21 +541,27 @@ typedef struct
     ID              chunkID<name="ChunkID", fgcolor=cRed>;
     CSIZE           size<name="Size">;
     local int       pos = FTell();
-    local ushort    tmpIndex;
-    tmpIndex = ReadUShort(FTell());
-    if (tmpIndex < 0xFF00)
-        ushort      index<name="Index">;
+    local ushort    tmp_envl_id;
+    tmp_envl_id = ReadUShort(FTell());
+    if (tmp_envl_id < 0xFF00)
+        ushort      envl_id<name="EnvelopeId">;
     else
-        ulong       index<name="Index">;
+        ulong       envl_id<name="Envelope Id">;
     ulong           type<name="Type", read=fn_Read_Type>;
-    local int subchunks = FTell();
-    while( FTell() - pos < size )
-        fn_Read_ENVL_Subchunks(subchunks);
+    local int subchunks_start_pos = FTell();
+    while(FTell() - pos < size)
+        fn_Read_ENVL_Subchunks(FTell());
 
     // Padding so the next chunk starts on an even byte
     if( (size & 1) && (FTell() < FileSize()) )
         uchar padding <hidden=true>;
-} ENVL_CHUNK <name="ENVL">;
+} ENVL_CHUNK <name="ENVL", read=fn_read_envl>;
+
+string fn_read_envl(ENVL_CHUNK& envl)
+{
+	string s;
+	return SPrintf(s, "%u", envl.envl_id);
+}
 
 string fn_Read_Type(ulong &type)
 {
@@ -580,11 +597,11 @@ typedef struct
     if (sizeof(type) & 1)
         uchar padding <hidden=true>;
 
-    ulong           identifier<name="Identifier">;
+    ulong           actn_id<name="ActionId">;
     //ushort   flags;
     local int subchunks = FTell();
     while(FTell() - pos < size)
-        fn_Read_ACTN_Subchunks(subchunks);
+        fn_Read_ACTN_Subchunks(FTell());
 
     // Padding so the next chunk starts on an even byte
     if( (size & 1) && (FTell() < FileSize()) )
@@ -594,7 +611,7 @@ typedef struct
 string fn_Read_ACTN(ACTN_CHUNK &actn)
 {
     string s;
-    return SPrintf(s, "Type: '%s' Name: '%s' ", actn.type, actn.name);
+    return SPrintf(s, "%u    '%s'    '%s'", actn.actn_id, actn.type, actn.name);
 }
 
 
@@ -683,7 +700,7 @@ typedef struct
         FILESPEC  ref;
     local int subchunks = FTell();
     while( FTell() - pos < size )
-        fn_Read_REFS_Subchunks(subchunks);
+        fn_Read_REFS_Subchunks(FTell());
     // Unknown data at the end of the chunk
     if( size > (FTell() - pos) )
         uchar unknown[ size - (FTell() - pos) ];
@@ -714,13 +731,11 @@ typedef struct
     float           subdivRefineLevel<name="Subdiv Refinement Level">;
     float           freezeCurveRefineLevel<name="Curve Refinement Level">;
     POINT_t         scalePivot<name="Scale Pivot">;
-    ulong           unusedU4[6]<name="Reserved">;
-    ulong           itemReference<name="Item Reference">;
+    float           unusedU4[6]<name="Reserved">;
+    ulong           item_id<name="Item Id">;
     ushort          splineRefineLevel<name="Spline Refinement Level">;
-    ushort          unusedU2[3]<name="Unused">;
-    // Unknown data at the end of the chunk
-    if( size > (FTell() - pos) )
-        uchar unknown[size - (FTell() - pos)]<name="Usually PSub Displaement Related">;
+    local ulong unused_count = (size - (FTell() - pos)) / 2;
+  	ushort					unusedU2[unused_count]<name="Unsused">;
 
     // Padding so the next chunk starts on an even byte
     if( (size & 1) && (FTell() < FileSize()) )
@@ -730,7 +745,7 @@ typedef struct
 string fn_Read_LAYR(LAYR_CHUNK &layr)
 {
     string s;
-    return SPrintf( s, "%s", layr.layerName );
+    return SPrintf(s, "%u    '%s'", layr.item_id, layr.layerName);
 }
 
 
@@ -759,6 +774,17 @@ typedef struct
     else
         ulong   index;
 } PointIndex_t<name="Index", read=fn_Read_PointIndex>;
+
+string fn_Read_PointIndex(PointIndex_t &index)
+{
+    string s;
+    uint i = (uint)index.index;
+    if (sizeof(index.index) == 4)
+		{
+			i &= 0x00FFFFFF;
+		}
+    return SPrintf(s, "%i", i);
+}
 
 typedef struct
 {
@@ -913,22 +939,28 @@ typedef struct
 
 		typedef struct
 		{
-      ushort nverts<name="Vert Count">;
-      if ("CURV" == polygon_type || "BEZR" == polygon_type)
-      {
-          ulong flags = (nverts & 0xfc00) >> 10;        // get curve flags
-          nverts &= 0x3ff;                        // mask off curve flags
-      }
-      else if ("HCRV" == polygon_type || "BCRV"  == polygon_type)
-      {
-          ulong flags;
-          PointIndex_t vertIndex[nverts] <optimize=false>;
-          break;
-      }
-      if ("CURV" == polygon_type || "BEZR" == polygon_type)
-          if (nverts < 4 || 1 != (nverts % 3))        // Skip invalid bezier curves
-              continue;
-      PointIndex_t vertIndex[nverts] <optimize=false>;
+      		ushort nverts<name="Vert Count", read=fn_read_poly_vert_count>;
+ 
+			if ("CURV" == polygon_type || "BEZR" == polygon_type)
+			{
+				local ushort v_count = nverts;
+				v_count &= 0x03FF;
+						PointIndex_t vertIndex[v_count] <optimize=false>;
+						break;     		
+			  //ulong flags;
+			  // = (nverts & 0xfc00) >> 10;        // get curve flags
+			  //nverts &= 0x3ff;                        // mask off curve flags
+			}
+			else if ("HCRV" == polygon_type || "BCRV"  == polygon_type || "BSPL" == polygon_type)
+			{
+			  ulong flags;
+			  PointIndex_t vertIndex[nverts] <optimize=false>;
+			  break;
+			}
+			if ("CURV" == polygon_type || "BEZR" == polygon_type)
+			  if (nverts < 4 || 1 != (nverts % 3))        // Skip invalid bezier curves
+			      continue;
+			PointIndex_t vertIndex[nverts] <optimize=false>;
 		} POLY_t <name="Poly">;
     
     local uint count = 0;
@@ -944,15 +976,11 @@ typedef struct
         uchar padding <hidden=true>;
 } POLS_CHUNK <name="POLS", read=fn_Read_POLS>;
 
-string fn_Read_PointIndex(PointIndex_t &index)
+string fn_read_poly_vert_count(ushort& count)
 {
-    string s;
-    int i = (int)index.index;
-    if (sizeof(index) == 4)
-		{
-			i &= 0x00FFFFFF;
-		}
-    return SPrintf(s, "%i", i);
+	string s;
+	count &= 0x03FF;
+	return SPrintf(s, "%u", count);
 }
 
 string fn_Read_PolyIndex(PolyIndex_t &index)
@@ -975,7 +1003,7 @@ string fn_Read_PolyType(ID &type)
 string fn_Read_POLS(POLS_CHUNK &pols)
 {
 	string s;
-	return SPrintf(s, "%u", pols.count);
+	return SPrintf(s, "%u    '%s'", pols.count, pols.polygon_type);
 }
 
 typedef struct
@@ -1141,7 +1169,13 @@ string PTAG_CHUNKRead(PTAG_CHUNK &ptag) {
 
 string fn_Read_PTAG(PTAG_t &tag)
 {
-	return tag.temp_tag_name;
+    string s;
+    uint i = (uint)tag.polyIndex;
+    if (sizeof(tag.polyIndex) == 4)
+		{
+			i &= 0x00FFFFFF;
+		}
+    return SPrintf(s, "%i, %s", i, tag.temp_tag_name);
 }
 
 // 3GRP chunk
@@ -1362,7 +1396,7 @@ typedef struct
     local int pos = FTell();
     local int subchunks = FTell();
     while( FTell() - pos < size )
-        fn_Read_AANI_Subchunks(subchunks);
+        fn_Read_AANI_Subchunks(FTell());
     // Unknown data at the end of the chunk
     if( size > (FTell() - pos) )
         uchar unknown[ size - (FTell() - pos) ];
@@ -1395,15 +1429,394 @@ typedef struct
 // IASS CHUNK
 typedef struct
 {
-		ID							chunkID<name="ChunkID", fgcolor=cRed>;
-    CSIZE           size<name="Size">;
-    if (size > 0)
-    	uchar     			unknownData[size];
+    ID          subchunkID<name="Subchunk ID">;
+    SCSIZE      subchunksize<name="Subchunk Size">;
+	local ulong pos = FTell();
+	typedef struct
+	{
+		string flat_string<name="Flat String">;
+    if (sizeof(flat_string) & 1)
+        uchar padding <hidden=true>;
+	} flat_string_t;
+	flat_string_t flat_string0<name="String 0", read=fn_Read_Flat_String>;
+	flat_string_t flat_string1<name="String 1", read=fn_Read_Flat_String>;
+	flat_string_t flat_string2<name="String 2", read=fn_Read_Flat_String>;
+	flat_string_t flat_string3<name="String 3", read=fn_Read_Flat_String>;
+	flat_string_t flat_string4<name="String 4", read=fn_Read_Flat_String>;
 
     // Padding so the next chunk starts on an even byte
-    if( (size & 1) && (FTell() < FileSize()) )
+    if( (subchunksize & 1) && (FTell() < FileSize()) )
+        uchar padding <hidden=true>;
+} IASS_FLAT_SUBCHUNK <name="FLAT", read=fn_Read_IASS_FLAT>;
+
+string fn_Read_IASS_FLAT(IASS_FLAT_SUBCHUNK& iass_flat)
+{
+	string s;
+	return SPrintf(s, "%s, %s, %s, %s, %s", iass_flat.flat_string0.flat_string, iass_flat.flat_string1.flat_string, iass_flat.flat_string2.flat_string, iass_flat.flat_string3.flat_string, iass_flat.flat_string4.flat_string);
+}
+
+string fn_Read_Flat_String(flat_string_t& str)
+{
+	string s;
+	return SPrintf(s, "%s", str.flat_string);
+}
+
+typedef struct
+{
+    ID          subchunkID<name="Subchunk ID">;
+    SCSIZE      subchunksize<name="Subchunk Size">;
+    string      referenceName<name="Reference Name">;
+    if (sizeof(referenceName) & 1)
+        uchar padding <hidden=true>;
+    string      referenceFilespec<name="Reference Filespec">;
+    if (sizeof(referenceFilespec) & 1)
+        uchar padding <hidden=true>;
+
+    // Padding so the next chunk starts on an even byte
+    if( (subchunksize & 1) && (FTell() < FileSize()) )
+        uchar padding <hidden=true>;
+} IASS_XREF_SUBCHUNK <name="XREF", read=fn_Read_IASS_XREF>;
+
+string fn_Read_IASS_XREF(IASS_XREF_SUBCHUNK &iass_xref)
+{
+	string s;
+	return SPrintf(s, "%s, %s", iass_xref.referenceName, iass_xref.referenceFilespec);
+}
+
+typedef struct
+{
+	ID				chunkID<name="ChunkID", fgcolor=cRed>;
+    CSIZE           chunksize<name="Chunk Size">;
+    local uint subchunk_start_pos = FTell();
+    while((FTell() - subchunk_start_pos) < chunksize)
+	    fn_Read_IASS_Subchunks(FTell());
+
+    // Padding so the next chunk starts on an even byte
+    if( (chunksize & 1) && (FTell() < FileSize()) )
         uchar padding <hidden=true>;
 } IASS_CHUNK<name="IASS">;
+
+void fn_Read_IASS_Subchunks(int pos)
+{
+  local ID tag;
+  ReadBytes(tag, pos, 4);
+
+	switch(tag)
+	{
+		case "FLAT":
+		{
+			IASS_FLAT_SUBCHUNK FLAT;
+			break;
+		}
+		case "XREF":
+		{
+	    	IASS_XREF_SUBCHUNK XREF;
+			break;
+		}
+		default:
+		{
+			UNKNOWNSUBCHUNK UNKN;
+			break;
+		}
+	}
+}
+
+//------------------------------------------------------------
+//SUBS CHUNK
+//------------------------------------------------------------
+typedef struct
+{
+    ID          subchunkID<name="Subchunk ID">;
+    SCSIZE      subchunksize<name="Subchunk Size">;
+    string      loaderType<name="Loader Type">;
+    if (sizeof(loaderType) & 1)
+        uchar padding <hidden=true>;
+    uint				unknown1<name="Unknown 1">;
+    uint				unknown2<name="Unknown 2">;
+
+    // Padding so the next chunk starts on an even byte
+    if( (subchunksize & 1) && (FTell() < FileSize()) )
+        uchar padding <hidden=true>;
+} SUBS_LOPT_SUBCHUNK <name="LOPT">;
+
+typedef struct
+{
+    ID          subchunkID<name="Subchunk ID">;
+    SCSIZE      subchunksize<name="Subchunk Size">;
+    string      itemIdent<name="Item Ident">;
+    if (sizeof(itemIdent) & 1)
+        uchar padding <hidden=true>;
+    string      itemName<name="Item Name">;
+    if (sizeof(itemName) & 1)
+        uchar padding <hidden=true>;
+    string      itemType<name="Item Type">;
+    if (sizeof(itemType) & 1)
+        uchar padding <hidden=true>;
+
+    // Padding so the next chunk starts on an even byte
+    if( (subchunksize & 1) && (FTell() < FileSize()) )
+        uchar padding <hidden=true>;
+} SUBS_IREF_SUBCHUNK <name="IREF", read=fn_Read_SUBS_IREF>;
+
+string fn_Read_SUBS_IREF(SUBS_IREF_SUBCHUNK& iref)
+{
+	string s;
+	return SPrintf(s, "%s, %s, %s", iref.itemIdent, iref.itemName, iref.itemType);
+}
+
+typedef struct
+{
+		ID							chunkID<name="ChunkID", fgcolor=cRed>;
+    uint						chunksize<name="Chunk Size">;
+    local uint subs_chunk_end = FTell() + chunksize;
+    string      		subsceneFilespec<name="Subscene Filespec">;
+								    if (sizeof(subsceneFilespec) & 1)
+								        uchar padding <hidden=true>;
+    string      		targetRootType<name="Target Root Type">;
+								    if (sizeof(targetRootType) & 1)
+								        uchar padding <hidden=true>;
+    while(FTell() < subs_chunk_end)
+	    fn_Read_SUBS_Subchunks();
+
+    // Padding so the next chunk starts on an even byte
+    if( (chunksize & 1) && (FTell() < FileSize()) )
+        uchar padding <hidden=true>;
+} SUBS_CHUNK<name="SUBS">;
+
+void fn_Read_SUBS_Subchunks()
+{
+  local ID tag;
+  ReadBytes(tag, FTell(), 4);
+  switch(tag)
+  {
+      case "LOPT":
+          SUBS_LOPT_SUBCHUNK LOPT;
+          break;
+      case "IREF":
+          SUBS_IREF_SUBCHUNK IREF;
+          break;
+  }
+}
+
+//------------------------------------------------------------
+// XREF_CHUNK
+//------------------------------------------------------------
+
+
+typedef struct
+{
+    ID          subchunkID<name="Subchunk ID">;
+    SCSIZE      subchunksize<name="Subchunk Size">;
+    local uint xref_idel_subchunk_end = FTell() + subchunksize;
+    local uint item_count = subchunksize / 4;
+    ulong       iref_item_id[item_count]<name="IRef Item Id">;
+    
+    // Padding so the next chunk starts on an even byte
+    if( (subchunksize & 1) && (FTell() < FileSize()) )
+        uchar padding <hidden=true>;
+} XREF_IDEL_SUBCHUNK<name="IDEL">;
+
+typedef struct
+{
+	byte flag_graph_tag<name="Graph Tag Flag">;
+	byte flag_action<name="Action Flag">;
+	byte flag_name<name="Name Flag">;
+	byte flag_select<name="Select Flag">;
+	byte flag_remove<name="Remove Flag">;
+} XREF_XMAN_Flags_Mode3_t;
+
+typedef struct
+{
+	uint flags<name="Flags", read=fn_Read_XREF_MAN_Flags_Mode2_t>;
+} XREF_MAN_Flags_Mode2_t;
+
+string fn_Read_XREF_MAN_Flags_Mode2_t(uint &flags)
+{
+	string s;
+	return SPrintf(s, "Graph Tag = %u, Action = %u, Name = %u, Select = %u, Remove = %u", flags & 1, flags & 2, flags & 4, flags & 8, flags & 16);
+}
+
+typedef struct
+{
+    ID          subchunkID<name="Subchunk ID">;
+    SCSIZE      subchunksize<name="Subchunk Size">;
+		local uint subchunk_start_pos = FTell();
+		uint				mode<name="Mode">;
+		
+		switch(mode)
+		{
+			case 3:
+			{
+				XREF_XMAN_Flags_Mode3_t flags<name="Flags">;
+				break;
+			}
+			case 2:
+			{
+				XREF_MAN_Flags_Mode2_t flags<name="Flags">;
+				break;
+			}
+			default:
+			{
+				uint flags<name="Flags">;
+			}
+		}
+
+		local uint skip_size = subchunksize - (FTell() - subchunk_start_pos);
+		FSkip(skip_size);
+
+    // Padding so the next chunk starts on an even byte
+    if( (subchunksize & 1) && (FTell() < FileSize()) )
+        uchar padding <hidden=true>;
+} XREF_XMAN_SUBCHUNK<name="XMAN">;
+
+typedef struct
+{
+		ID							chunkID<name="ChunkID", fgcolor=cRed>;
+    uint						chunksize<name="Chunk Size">;
+		local uint xref_chunk_end = FTell() + chunksize;
+		uint						subsceneIndex<name="Subscene Index">;
+    string      		subsceneRefName<name="Subscene Reference Name">;
+								    if (sizeof(subsceneRefName) & 1)
+								        uchar padding <hidden=true>;
+  	local char tag[4];
+    while(FTell() < xref_chunk_end)
+    {
+    	ReadBytes(tag, FTell(), sizeof(tag));
+			switch(tag)
+			{
+				case "IDEL":
+					XREF_IDEL_SUBCHUNK IDEL;
+					break;
+				case "XMAN":
+					XREF_XMAN_SUBCHUNK XMAN;
+					break;
+			}
+    }
+
+    // Padding so the next chunk starts on an even byte
+    if( (chunksize & 1) && (FTell() < FileSize()) )
+        uchar padding <hidden=true>;
+} XREF_CHUNK<name="XREF">;
+
+void fn_Read_XREF_Subchunks(int pos)
+{
+  local ID tag;
+  local uint size;
+  ReadBytes(tag, FTell(), 4);
+
+  switch(tag)
+  {
+      case "IDEL":
+          XREF_IDEL_SUBCHUNK IDEL;
+          break;
+      case "XMAN":
+          XREF_XMAN_SUBCHUNK XMAN;
+          break;
+/*      default:
+          size = ReadUInt(FTell()+4);
+          Printf( "Encountered unknown REFS subchunk '%s' of size %d at position %Ld.\n", tag, size, FTell() );
+          UNKNOWNSUBCHUNK unknown;
+          break;*/
+  }
+}
+
+//------------------------------------------------------------
+// DATA_CHUNK
+//------------------------------------------------------------
+
+typedef struct
+{
+		string					name<name="Name">;
+								    if (sizeof(name) & 1)
+								        uchar padding <hidden=true>;
+		float						value<name="Value">;
+} name_value_pair_float_t <read=fn_Read_Name_Value_Pair_Float>;
+
+string fn_Read_Name_Value_Pair_Float(name_value_pair_float_t &pair)
+{
+	string s;
+	return SPrintf(s, "%s, %6.2f", pair.name, pair.value);
+}
+
+typedef struct
+{
+		string					name<name="Name">;
+								    if (sizeof(name) & 1)
+								        uchar padding <hidden=true>;
+		uint						value<name="Value">;
+} name_value_pair_uint_t <read=fn_Read_Name_Value_Pair_UInt>;
+
+string fn_Read_Name_Value_Pair_UInt(name_value_pair_uint_t &pair)
+{
+	string s;
+	return SPrintf(s, "%s, %u", pair.name, pair.value);
+}
+
+typedef struct
+{
+		ID							chunkID<name="ChunkID", fgcolor=cRed>;
+    uint						chunksize<name="Chunk Size">;
+		local uint data_chunk_end = FTell() + chunksize;
+		uint						index<name="Index">;
+		uint						unknown1<name="Unknown1">;
+		string					type<name="Type">;
+								    if (sizeof(type) & 1)
+								        uchar padding <hidden=true>;
+		local uint pair_count;
+		//name_value pairs based of 'type' (above) till the end of the chunk
+		switch (type)
+		{
+			case "+wcWeightMap":
+			{
+		        while(FTell() < data_chunk_end)
+		        {
+					    name_value_pair_float_t name_value<name="Name, Value Pair">;
+					    pair_count = pair_count + 1;
+		        }
+				break;
+			}
+			case "+intrange":
+			{
+				string				value<name="Value">;
+									    if (sizeof(value) & 1)
+									        uchar padding <hidden=true>;
+				break;
+			}
+			default:
+			{
+		        while(FTell() < data_chunk_end)
+		        {
+					    name_value_pair_uint_t name_value<name="Name, Value Pair">;
+					    pair_count = pair_count + 1;
+		        }
+				break;
+			}
+		}
+
+		FSkip(data_chunk_end - FTell());
+
+		fn_Chunk_SubChunk_Padding(chunksize);
+} DATA_CHUNK<name="DATA", read=fn_Read_DATA_CHUNK>;
+
+string fn_Read_DATA_CHUNK(DATA_CHUNK &chunk)
+{
+	string s;
+	return SPrintf(s, "%u pairs of '%s'", chunk.pair_count, chunk.type);
+}
+
+
+void fn_Chunk_SubChunk_Padding(uint size)
+{
+	if ((size & 1) && (FTell() < FileSize))
+		uchar padding<hidden=true>;
+}
+
+
+
+
+
+
+
 
 // BAKE CHUNK
 typedef struct
@@ -1419,27 +1832,6 @@ typedef struct
         uchar padding <hidden=true>;
 } BAKE_CHUNK <name="BAKE">;
 
-
-//DATA CHUNK
-typedef struct
-{
-    ID              chunkID<name="ChunkID", fgcolor=cRed>;
-    CSIZE           size<name="Size">;
-    ulong           index_id<name="IndexId">;
-    ulong           value_size<name="ValueSize">;
-		string					value_type<name="Value Type">;
-    if (sizeof(value_type) & 1)
-        uchar padding <hidden=true>;
-    if (value_size > 0)
-  	{
-			string value<name="Value">;
-	    if (sizeof(value) & 1)
-	        uchar padding <hidden=true>;
-  	}
-    // Padding so the next chunk starts on an even byte
-    if( (size & 1) && (FTell() < FileSize()) )
-        uchar padding <hidden=true>;
-} DATA_CHUNK <name="DATA">;
 
 //------------------------------------------------------------
 // Item subchunk definitions.
@@ -1888,12 +2280,12 @@ typedef struct
     string      graphName<name="Graph name   ">;
     if (sizeof(graphName) & 1)
         uchar padding <hidden=true>;
-    string      fromChannel<name="From-Channel   ">;
-    if (sizeof(fromChannel) & 1)
+    string      fromChannelName<name="From-Channel Name">;
+    if (sizeof(fromChannelName) & 1)
         uchar padding <hidden=true>;
-    ulong       fromItemID<name="From-Item ID">;
-    string      toName<name="To-Name   ">;
-    if (sizeof(toName) & 1)
+    ulong       toItemID<name="To-Item ID">;
+    string      toChannelName<name="To-Channel Name">;
+    if (sizeof(toChannelName) & 1)
         uchar padding <hidden=true>;
     ulong       fromIndex<name="From-Index">;
     ulong       toIndex<name="To-Index">;
@@ -1906,7 +2298,7 @@ typedef struct
 string fn_Read_ITEM_CLNK(ITEM_CLNK_SUBCHUNK &clnk)
 {
     string s;
-    return SPrintf(s, "Graph: %s   From: %s   To: %s", clnk.graphName, clnk.fromChannel, clnk.toName);
+    return SPrintf(s, "Graph: %s   FromChannel: %s   ToChannel: %s", clnk.graphName, clnk.fromChannelName, clnk.toChannelName);
 }
 
 
@@ -1951,7 +2343,7 @@ string fn_Read_ITEM_BBOX(ITEM_BBOX_SUBCHUNK &bbox)
     return SPrintf( s, "Min: (%s), Max: (%s)", fn_Read_Point(bbox.min), fn_Read_Point(bbox.max) );
 }
 
-// CHNC chunk
+// ITEM_CHNC_SUBCHUNK
 typedef struct
 {
     ID          subchunkID<name="Subchunk ID">;
@@ -1982,25 +2374,19 @@ string fn_Read_ITEM_VNAM(ITEM_VNAM_SUBCHUNK &vnam)
 	return SPrintf(s, "%s", vnam.name);
 }
 
-//ITEM_BCHN_SUBCHUNK
+// ITEM_BCHN_SUBCHUNK
 typedef struct
 {
-    ID          			subchunkID<name="Subchunk ID">;
-    SCSIZE      			size<name="Subchunk Size">;
-    string      			name<name="Operation">;
-    unsigned long			data_index_id<name="DataIndexId">;
-    if (sizeof(name) & 1)
-        uchar padding <hidden=true>;
+    ID          subchunkID<name="Subchunk ID">;
+    SCSIZE      subchunksize<name="Subchunk Size">;
+    string      operationItemType<name="Operation Item Type">;
+						    if (sizeof(operationItemType) & 1)
+						        uchar padding <hidden=true>;
+		uint				dataIndex<name="Data Chunk Index">;
     // Padding so the next chunk starts on an even byte
-    if( (size & 1) && (FTell() < FileSize()) )
+    if((subchunksize & 1) && (FTell() < FileSize()))
         uchar padding <hidden=true>;
-} ITEM_BCHN_SUBCHUNK <name="BCHN", read=fn_Read_ITEM_BCHN>;
-
-string fn_Read_ITEM_BCHN(ITEM_BCHN_SUBCHUNK &bchn)
-{
-	string s;
-	return SPrintf(s, "Op: '%s' DataIndex: '%u'", bchn.name, bchn.data_index_id);
-}
+} ITEM_BCHN_SUBCHUNK <name="BCHN">;
 
 //------------------------------------------------------------
 // ENVL subchunk definitions.
@@ -2166,9 +2552,9 @@ string fnRead_WeightType(ushort type)
 	switch (type)
 	{
 		case 0:
-			return "Manual";
-		case 1:
 			return "Automatic";
+		case 256:
+			return "Manual";
 		default:
 			return "Unknown";
 	}
@@ -2202,13 +2588,21 @@ typedef struct
 {
     ID          subchunkID<name="Subchunk ID">;
     SCSIZE      size<name="Subchunk Size">;
-    ulong       identifier<name="Identifier">;
+    ulong       item_id<name="Item ID">;
 
     // Padding so the next chunk starts on an even byte
     if( (size & 1) && (FTell() < FileSize()) )
         uchar padding <hidden=true>;
-} ACTN_ITEM_SUBCHUNK<name="ITEM">;
+} ACTN_ITEM_SUBCHUNK<name="ITEM", read=fn_read_actn_item>;
 
+string fn_read_actn_item(ACTN_ITEM_SUBCHUNK& actn_item)
+{
+	string s;
+	if (exists(ITEM[actn_item.item_id].VNAM))
+		return SPrintf(s, "%u '%s'", actn_item.item_id, ITEM[actn_item.item_id].VNAM.name);
+	else
+		return SPrintf(s, "%u '%s'", actn_item.item_id, ITEM[actn_item.item_id].username);
+}
 
 // ACTN_GRAD_SUBCHUNK
 typedef struct
@@ -2582,7 +2976,7 @@ typedef struct
 // subchunk reading functions
 //------------------------------------------------------------
 
-void fn_ReadItemSubchunks(int pos)
+void fn_ReadItemSubchunks()
 {
     local ID tag;
     local uint size;
@@ -2653,7 +3047,7 @@ void fn_ReadItemSubchunks(int pos)
             Printf( "Encountered unknown ITEM subchunk '%s' of size %d at position %Ld.\n", tag, size, FTell() );
             UNKNOWNSUBCHUNK unknown;
             break;
-        }
+    }
 }
 
 

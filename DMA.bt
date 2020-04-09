@@ -1,0 +1,53 @@
+// 010 Editor Template for Forgelight DMA files
+// from Planetside 2
+// synide@rocketmail.com
+// July, 2018
+
+typedef struct
+{
+	string										texture<name="Texture">;
+} texture_t <read=fn_read_texture_t>;;
+
+string fn_read_texture_t(texture_t& tx)
+{
+	return tx.texture;
+}
+
+typedef struct
+{
+	uint											semantic_hash<name="Semantic Hash">;
+	uint											d3dxparameter_class<name="D3DX Parameter Class">;
+	uint											d3dxparameter_type<name="D3DX Parameter Type">;
+	uint											data_length<name="Data Length">;
+	byte											data[data_length]<name="Data">;
+} material_parameter_t;
+
+typedef struct
+{
+	uint											name_hash<name="Name Hash">;
+	uint											materials_length<name="Materials Length">;
+	uint											material_definition_hash<name="Material Definition Hash">;
+	uint											parameter_count<name="Parameter Count">;
+	material_parameter_t			parameters[parameter_count]<name="Parameters", optimize=false>;
+} material_t;
+
+typedef struct
+{
+	byte											magic[4]<name="Magic", fgcolor=cRed>;
+	uint											version<name="Version">;
+	uint											textures_length<name="Textures Length">;
+  local uint tx_start_offset = FTell();
+  while(FTell() < tx_start_offset + textures_length)
+  {
+    texture_t								texture<name="Texture">;
+  };
+	uint											material_count<name="Material Count">;
+	material_t								materials[material_count]<name="Materials", optimize=false>;
+} dmat_t;
+
+
+
+
+
+LittleEndian();
+dmat_t													dmat<name="Dmat">;

@@ -1,0 +1,112 @@
+// 010 Editor Template for Forgelight CDT files
+// from Planetside 2
+// synide@rocketmail.com
+// July, 2018
+
+typedef struct
+{
+	byte											magic[4]<name="Magic", fgcolor=cRed>;
+	uint											something_1<name="Something_1">;
+	uint											something_2<name="Something_2">;
+	uint											something_3<name="Something_3">;
+	uint											something_4<name="Something_4">;
+} header_t;
+
+typedef struct
+{
+	float x<name="X">;
+	float y<name="Y">;
+	float z<name="Z">;
+} position_t<read=fn_Read_position_t>;
+
+typedef struct
+{
+	ushort					vert_index_0<name="PointIndex_0">;
+	ushort					vert_index_1<name="PointIndex_1">;
+	ushort					vert_index_2<name="PointIndex_2">;
+} triangle_t<read=fn_Read_triangle_t>;
+
+typedef struct
+{
+	byte											magic[4]<name="Magic", fgcolor=cRed>;
+	byte											type[4]<name="Type">;
+	uint											nxs_something_1<name="NXS_Something_1">;
+	uint											nxs_something_2<name="NXS_Something_2">;
+	float											nxs_something_3<name="NXS_Something_3">;
+	uint											nxs_vert_count<name="NXS_Vert_Count">;
+	uint											nxs_face_count<name="NXS_Face_Count">;
+
+	position_t								nxs_verts[nxs_vert_count]<name="NXS_Verts">;
+	triangle_t								nxs_faces[nxs_face_count]<name="NXS_Triangles">;
+
+	uint											nxs_face_count_2<name="NXS_Face_Count_2">;
+
+	//position_t								nxs_verts_2[nxs_vert_count_2]<name="NXS_Verts_2">;
+	triangle_t								nxs_faces_2[nxs_face_count_2]<name="NXS_Triangles_2">;
+
+	uint											nxs_face_count_3<name="NXS_Face_Count_3">;
+
+	position_t								nxs_verts_3[nxs_vert_count_3]<name="NXS_Verts_3">;
+	triangle_t								nxs_faces_3[nxs_face_count_3 / 3]<name="NXS_Triangles_3">;
+} nxs_header_t;
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+typedef struct
+{
+	uint vert_count<name="Vert_Count">;
+	position_t verts[vert_count]<name="Verts">;
+} verts_t;
+
+typedef struct
+{
+	uint												face_count<name="Face_Count">;
+	triangle_t									faces[face_count]<name="Triangles">;
+} triangles_t;
+
+
+
+
+
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+string fn_Read_position_t(position_t &pos)
+{
+	string s;
+	SPrintf(s, "xyz: %6.6f, %6.6f, %6.6f", pos.x, pos.y, pos.z);
+	return s;
+}
+
+string fn_Read_triangle_t(triangle_t &tri)
+{
+	string s;
+	return SPrintf(s, "%u, %u, %u", tri.vert_index_0, tri.vert_index_1, tri.vert_index_2);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+LittleEndian();
+header_t												header<name="Header">;
+verts_t													verts<name="Verts">;
+triangles_t											faces<name="Faces">;
+uint														nxs_size<name="NXS_Size">;
+nxs_header_t										nxs<name="NXS_Header">;

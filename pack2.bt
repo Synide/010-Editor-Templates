@@ -1,0 +1,32 @@
+// *.pack2
+typedef char magic_t[4];
+
+typedef struct stFileHeader
+{
+	magic_t magic<name="Magic", fgcolor=cRed>;
+	ulong asset_count<name="AssetCount">;
+	uint64 file_size<name="Filesize">;
+	uint64 asset_headers_offset<name="AssetHeadersOffset">;
+} FileHeader_t;
+
+typedef struct stAssetHeader
+{
+	uint64 hash<name="NameHash">;
+	uint64 offset<name="Offset">;
+	uint64 length<name="Length">;
+	uint flags<name="Flags">;
+	uint crc32<name="Crc32">;
+} AssetHeader_t;
+
+
+
+
+
+
+LittleEndian();
+FileHeader_t fileheader<name="FileHeader">;
+local int64 pos_file_header_finish = FTell();
+FSeek(fileheader.asset_headers_offset);
+AssetHeader_t asset_header[fileheader.asset_count]<name="AssetHeaders">;
+FSeek(asset_header[0].offset);
+byte data[asset_header[0].length]<name="Data">;

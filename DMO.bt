@@ -1,0 +1,1109 @@
+// 010 Editor Template for Forgelight DME files
+// from Planetside 2
+// synide@rocketmail.com
+// July, 2018
+
+
+typedef struct
+{
+	ubyte					x;
+	ubyte					y;
+	ubyte					z;
+	ubyte					w;
+} ubyte4n_t;
+
+typedef struct
+{
+	ubyte					a;
+	ubyte					r;
+	ubyte					g;
+	ubyte					b;
+} d3dcolor_t;
+
+typedef struct
+{
+	float m00<name="M00">;
+	float m01<name="M01">;
+	float m02<name="M02">;
+} xfrm_row_0_t;
+
+typedef struct
+{
+	float m10<name="M10">;
+	float m11<name="M11">;
+	float m12<name="M12">;
+} xfrm_row_1_t;
+
+typedef struct
+{
+	float m20<name="M20">;
+	float m21<name="M21">;
+	float m22<name="M22">;
+} xfrm_row_2_t;
+
+typedef struct
+{
+	float m30<name="M30">;
+	float m31<name="M31">;
+	float m32<name="M32">;
+} xfrm_row_3_t;
+
+////////////////////////
+//		USAGE TYPES
+////////////////////////
+
+typedef struct
+{
+	float x<name="X">;
+	float y<name="Y">;
+	float z<name="Z">;
+} position_t<read=fn_Read_position_t>;
+
+typedef struct
+{
+	float w<name="W">;
+	float x<name="X">;
+	float y<name="Y">;
+	float z<name="Z">;
+} position4_t<read=fn_Read_position4_t>;
+
+typedef struct
+{
+	ubyte x<name="X">;
+	ubyte	y<name="Y">;
+	ubyte	z<name="Z">;
+	ubyte	w<name="W">;
+} tween_position_t;
+//<read=fn_Read_tween_position_t>
+
+typedef struct
+{
+	hfloat					u<name="U">;
+	hfloat					v<name="V">;
+} texcoord_t;
+
+typedef struct
+{
+	float					u<name="U">;
+	float					v<name="V">;
+} texcoord_float2_t;
+
+typedef struct
+{
+	ubyte					a;
+	ubyte					r;
+	ubyte					g;
+	ubyte					b;
+} color_t;
+
+typedef struct
+{
+	ubyte					x;
+	ubyte					y;
+	ubyte					z;
+	ubyte					w;
+} tangent_t;
+
+typedef struct
+{
+	float x<name="X">;
+	float y<name="Y">;
+	float z<name="Z">;
+} tangent_float3_t<read=fn_Read_Tangent_Float3>;
+
+typedef struct
+{
+	ubyte					x;
+	ubyte					y;
+	ubyte					z;
+	ubyte					w;
+} binormal_t;
+
+typedef struct
+{
+	float x<name="X">;
+	float y<name="Y">;
+	float z<name="Z">;
+} binormal_float3_t<read=fn_Read_Binormal_Float3>;
+
+typedef struct
+{
+	ubyte4n_t				blendweight<name="BlendWeight", read=fn_Read_BlendWeight>;
+} blendweight_t;
+
+typedef struct
+{
+	float x<name="X">;
+	float y<name="Y">;
+	float z<name="Z">;
+} blendweight_float3_t<read=fn_Read_BlendWeight_Float3>;
+
+typedef struct
+{
+	d3dcolor_t				blendindices<name="BlendIndices", read=fn_Read_BlendIndices>;
+} blendindices_t;
+
+typedef struct
+{
+	ubyte					x;
+	ubyte					y;
+	ubyte					z;
+	ubyte					w;
+} normal_t;
+
+
+
+
+
+
+
+
+
+
+typedef struct
+{
+	position_t min<name="min">;
+	position_t max<name="max">;
+} aabb_t<read=fn_Read_AABB>;
+
+typedef struct
+{
+	byte											magic[4]<name="Magic", fgcolor=cRed>;
+	uint											version<name="Version">;
+	uint											dmat_length<name="DMAT Length">;
+} header_t;
+
+typedef struct
+{
+	string										texture<name="Texture">;
+} texture_t <read=fn_read_texture_t>;
+
+string fn_read_texture_t(texture_t& tx)
+{
+	return tx.texture;
+}
+
+typedef struct
+{
+	uint											semantic_hash;
+	uint											d3dxparameter_class;
+	uint											d3dxparameter_type;
+	uint											data_length;
+	byte											data[data_length];
+} material_parameter_t;
+
+typedef struct
+{
+	uint											name_hash<name="Name Hash">;
+	uint											materials_length<name="Materials Length">;
+	uint											material_definition_hash<name="Material Definition Hash">;
+	uint											parameter_count<name="Parameter Count">;
+	material_parameter_t			parameters[parameter_count]<name="Parameters", optimize=false>;
+} material_t;
+
+typedef struct
+{
+	byte											magic[4]<name="Magic", fgcolor=cRed>;
+	uint											version<name="Version">;
+	uint											textures_length<name="Textures Length">;
+  local uint tx_start_offset = FTell();
+  while(FTell() < tx_start_offset + textures_length)
+  {
+    texture_t								texture<name="Texture">;
+  };
+	uint											material_count<name="Material Count">;
+	material_t								materials[material_count]<name="Materials", optimize=false>;
+} dmat_t;
+
+///////////////////////////////////////////////////////////////////////////////////////////
+//
+//					VERTEX STREAM LAYOUT STURCTURES
+//
+///////////////////////////////////////////////////////////////////////////////////////////
+
+typedef struct
+{
+	position_t					position<name="Position">;
+} standard_stream_zero_layout_1_t;
+
+typedef struct
+{
+	position4_t					position<name="Position">;
+} standard_stream_zero_layout_2_t;
+
+///////////////////////////////////////////////////////////////////////////////////////////
+//Null Layout
+typedef struct
+{
+	position_t				position<name="Position">;
+} null_layout_t;
+
+///////////////////////////////////////////////////////////////////////////////////////////
+//Position Layout
+typedef struct
+{
+	position_t				position<name="Position">;
+} position_layout_t;
+
+///////////////////////////////////////////////////////////////////////////////////////////
+//POS_TEX Layout
+typedef struct
+{
+	position_t				position<name="Position">;
+} pos_tex_layout_stream_0_t;
+
+typedef struct
+{
+	texcoord_t				texcoord<name="Texcoord">;
+} pos_tex_layout_stream_1_t;
+
+typedef struct
+{
+	position_t				position<name="Position">;
+	texcoord_t				texcoord<name="Texcoord">;
+} v3_pos_tex_layout_stream_t;
+
+///////////////////////////////////////////////////////////////////////////////////////////
+//Structure Layout
+//<Object Class="InputLayout" Name="Structure">
+//    <Array Name="Entries">
+//        <Object Class="LayoutEntry" Stream="0" Type="Float3" Usage="Position" UsageIndex="0" />
+//        <Object Class="LayoutEntry" Stream="1" Type="ubyte4n" Usage="Tangent" UsageIndex="0" />
+//        <Object Class="LayoutEntry" Stream="1" Type="ubyte4n" Usage="Binormal" UsageIndex="0" />
+//        <Object Class="LayoutEntry" Stream="1" Type="Float16_2" Usage="Texcoord" UsageIndex="0" />
+//        <Object Class="LayoutEntry" Stream="1" Type="Float16_2" Usage="Texcoord" UsageIndex="1" />
+//        <Object Class="LayoutEntry" Stream="1" Type="Float16_2" Usage="Texcoord" UsageIndex="2" />
+//    </Array>
+//</Object>
+
+typedef struct
+{
+	position_t				position<name="Position">;
+} structure_layout_stream_0_t;
+
+typedef struct
+{
+	tangent_t					tangent<name="Tangent">;
+	binormal_t				binormal<name="Binormal">;
+	texcoord_t				texcoord0<name="Texcoord0">;
+	texcoord_t				texcoord1<name="Texcoord1">;
+	texcoord_t				texcoord2<name="Texcoord2">;
+} structure_layout_stream_1_t;
+
+typedef struct
+{
+	position_t				position<name="Position">;
+	tangent_t					tangent<name="Tangent">;
+	binormal_t				binormal<name="Binormal">;
+	texcoord_t				texcoord0<name="Texcoord0">;
+	texcoord_t				texcoord1<name="Texcoord1">;
+	texcoord_t				texcoord2<name="Texcoord2">;
+} v3_structure_layout_stream_t;
+
+///////////////////////////////////////////////////////////////////////////////////////////
+//Character Layout
+typedef struct
+{
+	position_t					position<name="Position">;
+	blendweight_t				blendweight<name="BlendWeight">;
+	blendindices_t			blendindices<name="BlendIndices">;
+} character_layout_stream_0_t;
+
+typedef struct
+{
+	tangent_t						tangent<name="Tangent">;
+	binormal_t					binormal<name="Binormal">;
+	texcoord_t					uv0<name="UV0">;
+	texcoord_t					uv1<name="UV1">;
+	texcoord_t					uv2<name="UV2">;
+} character_layout_stream_1_size20_t;
+
+typedef struct
+{
+	tangent_t						tangent<name="Tangent">;
+	binormal_t					binormal<name="Binormal">;
+	texcoord_t					uv0<name="UV0">;
+	texcoord_t					uv1<name="UV1">;
+	//texcoord_t					uv2<name="UV2">;
+} character_layout_stream_1_size16_t;
+
+typedef struct
+{
+	position_t					position<name="Position">;
+	blendweight_t				blendweight<name="BlendWeight">;
+	blendindices_t			blendindices<name="BlendIndices">;
+	tangent_t						tangent<name="Tangent">;
+	binormal_t					binormal<name="Binormal">;
+	texcoord_t					uv0<name="UV0">;
+	texcoord_t					uv1<name="UV1">;
+	texcoord_t					uv2<name="UV2">;
+} v3_character_layout_stream_size40_t;
+
+typedef struct
+{
+	position_t					position<name="Position">;
+	blendweight_t				blendweight<name="BlendWeight">;
+	blendindices_t			blendindices<name="BlendIndices">;
+	tangent_t						tangent<name="Tangent">;
+	binormal_t					binormal<name="Binormal">;
+	texcoord_t					uv0<name="UV0">;
+	texcoord_t					uv1<name="UV1">;
+	//texcoord_t					uv2<name="UV2">;
+} v3_character_layout_stream_size36_t;
+
+///////////////////////////////////////////////////////////////////////////////////////////
+//ModelSkinned
+//<Object Class="InputLayout" Name="ModelSkinned">
+//    <Array Name="Entries">
+//        <Object Class="LayoutEntry" Stream="0" Type="Float3" Usage="Position" UsageIndex="0" />
+//        <Object Class="LayoutEntry" Stream="0" Type="ubyte4n" Usage="BlendWeight" UsageIndex="0" />
+//        <Object Class="LayoutEntry" Stream="0" Type="D3dcolor" Usage="BlendIndices" UsageIndex="0" />
+//        <Object Class="LayoutEntry" Stream="1" Type="ubyte4n" Usage="Tangent" UsageIndex="0" />
+//        <Object Class="LayoutEntry" Stream="1" Type="ubyte4n" Usage="Binormal" UsageIndex="0" />
+//        <Object Class="LayoutEntry" Stream="1" Type="ubyte4n" Usage="Color" UsageIndex="0" />
+//        <Object Class="LayoutEntry" Stream="1" Type="Float16_2" Usage="Texcoord" UsageIndex="0" />
+//        <Object Class="LayoutEntry" Stream="1" Type="Float16_2" Usage="Texcoord" UsageIndex="1" />
+//        <Object Class="LayoutEntry" Stream="1" Type="Float16_2" Usage="Texcoord" UsageIndex="2" />
+//    </Array>
+//</Object>
+
+typedef struct
+{
+	position_t					position<name="Position">;
+	blendweight_t				blendweight<name="BlendWeight">;
+	blendindices_t			blendindices<name="BlendIndices">;
+} modelskinned_layout_stream_0_t;
+
+typedef struct
+{
+	tangent_t						tangent<name="Tangent">;
+	binormal_t					binormal<name="Binormal">;
+	color_t							color<name="Color">;
+	texcoord_t					uv0<name="UV0">;
+	texcoord_t					uv1<name="UV1">;
+	texcoord_t					uv2<name="UV2">;
+} modelskinned_layout_stream_1_t;
+
+////////////////////////////////////////////////////////////////////////////////////////////
+//Vehicle Layout
+typedef struct
+{
+	position_t					position<name="Position">;
+} vehicle_layout_stream_0_t;
+
+typedef struct
+{
+	tangent_t						tangent<name="Tangent">;
+	binormal_t					binormal<name="Binormal">;
+	texcoord_t					uv0<name="UV0">;
+	texcoord_t					uv1<name="UV1">;
+	color_t							color<name="Color">;
+} vehicle_layout_stream_1_size20_t;
+
+typedef struct
+{
+	tangent_t						tangent<name="Tangent">;
+	binormal_t					binormal<name="Binormal">;
+	texcoord_t					uv0<name="UV0">;
+	texcoord_t					uv1<name="UV1">;
+	color_t							color<name="Color">;
+	texcoord_t					uv2<name="UV2">;
+} vehicle_layout_stream_1_size24_t;
+
+typedef struct
+{
+	position_t					position<name="Position">;
+	tangent_t						tangent<name="Tangent">;
+	binormal_t					binormal<name="Binormal">;
+	texcoord_t					uv0<name="UV0">;
+	texcoord_t					uv1<name="UV1">;
+	color_t							color<name="Color">;
+	texcoord_t					uv2<name="UV2">;
+} v3_vehicle_layout_stream_t;
+
+///////////////////////////////////////////////////////////////////////////////////////////
+//BumpRigid Layout
+typedef struct
+{
+	position_t					position<name="Position">;
+} bumprigid_layout_stream_0_t;
+
+typedef struct
+{
+	tangent_t						tangent<name="Tangent">;
+	binormal_t					binormal<name="Binormal">;
+	texcoord_t					uv0<name="UV0">;
+} bumprigid_layout_stream_1_t;
+
+typedef struct
+{
+	position_t					position<name="Position">;
+	tangent_t						tangent<name="Tangent">;
+	binormal_t					binormal<name="Binormal">;
+	texcoord_t					uv0<name="UV0">;
+} v3_bumprigid_layout_stream_t;
+
+///////////////////////////////////////////////////////////////////////////////////////////
+//Object Layout
+typedef struct
+{
+	position_t					position<name="Position">;
+} object_layout_stream_0_t;
+
+typedef struct
+{
+	tangent_t						tangent<name="Tangent">;
+	binormal_t					binormal<name="Binormal">;
+	texcoord_t					uv0<name="UV0">;
+	texcoord_t					uv1<name="UV1">;
+	tween_position_t		position<name="Position">;
+	normal_t						normal<name="Normal">;
+	color_t							color<name="Color">;
+} object_layout_stream_1_t;
+
+typedef struct
+{
+	position_t					position<name="Position">;
+	tangent_t						tangent<name="Tangent">;
+	binormal_t					binormal<name="Binormal">;
+	texcoord_t					uv0<name="UV0">;
+	texcoord_t					uv1<name="UV1">;
+	tween_position_t		tween_position<name="TweenPosition">;
+	normal_t						normal<name="Normal">;
+	color_t							color<name="Color">;
+} v3_object_layout_stream_t;
+
+///////////////////////////////////////////////////////////////////////////////////////////
+//TwoSided Layout
+typedef struct
+{
+	position_t					position<name="Position">;
+} twosided_layout_stream_0_t;
+
+typedef struct
+{
+	tangent_t						tangent<name="Tangent">;
+	binormal_t					binormal<name="Binormal">;
+	texcoord_t					uv0<name="UV0">;
+	texcoord_t					uv1<name="UV1">;
+} twosided_layout_stream_1_t;
+
+///////////////////////////////////////////////////////////////////////////////////////////
+//Post Layout
+typedef struct
+{
+	position4_t					position<name="Position">;
+} post_layout_stream_0_t;
+
+///////////////////////////////////////////////////////////////////////////////////////////
+//BumpSkin Layout
+
+typedef struct
+{
+	blendweight_float3_t				blendweight<name="BlendWeight">;
+	blendindices_t							blendindices<name="BlendIndices">;
+	tangent_float3_t						tangent<name="Tangent">;
+	binormal_float3_t						binormal<name="Binormal">;
+	texcoord_float2_t						uv0<name="UV0">;
+} bumpskin_layout_stream_1_t;
+
+
+
+
+
+typedef struct
+{
+	ushort					vert_index_0<name="PointIndex_0">;
+	ushort					vert_index_1<name="PointIndex_1">;
+	ushort					vert_index_2<name="PointIndex_2">;
+} triangle_2_t;
+
+typedef struct
+{
+	uint						vert_index_0<name="PointIndex_0">;
+	uint						vert_index_1<name="PointIndex_1">;
+	uint						vert_index_2<name="PointIndex_2">;
+} triangle_4_t;
+
+typedef struct
+{
+	uint						bone_start<name="Bone Start">;
+	uint						bone_count<name="Bone Count">;
+	FSkip(4);
+	uint						vertex_offset<name="Vertex Offset">;
+	uint						vertex_count<name="Vertex Count">;
+	uint						index_offset<name="Index Offset">;
+	uint						index_count<name="Index Count">;
+} drawcall_t;
+
+typedef struct
+{
+	uint						bone_start<name="Bone Start">;
+	uint						bone_count<name="Bone Count">;
+	uint						delta<name="Delta">;
+	//uint						unknown_2<name="Unknown_2">;
+	uint						bytes_per_vertex<name="Bytes Per Vertex">;
+	uint						vertex_count<name="Vertex Count">;
+	uint						index_offset<name="Index Offset">;
+	uint						index_count<name="Index Count">;
+} v3_drawcall_t;
+
+typedef struct
+{
+	ushort					bone_index<name="Bone Index">;
+	ushort					global_index<name="Global Index">;
+} bone_map_entry_t;
+
+typedef struct
+{
+	xfrm_row_0_t				row0<name="Row_0">;
+	xfrm_row_1_t				row1<name="Row_1">;
+	xfrm_row_2_t				row2<name="Row_2">;
+	xfrm_row_3_t				row3<name="Row_3">;
+} transform_t;
+
+typedef struct
+{
+	uint												material_index<name="Material Index">;
+	uint												drawcall_count<name="Drawcall Count">;
+	uint												bone_transform_count<name="Bone Transform Count">;
+	FSkip(4);
+	uint												bytes_per_vertex<name="Bytes Per Vertex">;
+	uint												vertex_count<name="Vertex Count">;
+	ushort											index_size<name="Index Size">;
+	FSkip(2);
+	uint												index_count<name="Index Count">;
+} v3_mesh_header_t;
+
+typedef struct
+{
+	uint												material_index<name="Material Index">;
+	uint												drawcall_count<name="Drawcall Count">;
+	uint												bone_transform_count<name="Bone Transform Count">;
+	FSkip(4);
+	uint												vertex_stream_count<name="Vertex Stream Count">;
+	ushort											index_size<name="Index Size">;
+	FSkip(2);
+	uint												index_count<name="Index Count">;
+	uint												vertex_count<name="Vertex Count">;
+} v4_mesh_header_t;
+
+
+
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+uint fn_Jenkins_Hash(string s, int upper)
+{
+	if (Strlen(s) == 0)
+		return 0;
+	if (upper)
+		s = ToUpper(s);
+
+	int hash = 0;
+	int len = Strlen(s);
+	for (i = 0; i < len; i++)
+	{
+		hash += s[i];
+		hash += (hash << 10);
+		hash ^= (hash >> 6);
+	}
+	hash += (hash << 3);
+	hash ^= (hash >> 11);
+	hash += (hash << 15);
+	return (unsigned int)hash;
+}
+
+string fn_Read_AABB(aabb_t &aabb)
+{
+	string s;
+	SPrintf(s, "min_xyz: %6.2f, %6.2f, %6.2f | max_xyz: %6.2f, %6.2f, %6.2f", aabb.min.x, aabb.min.y, aabb.min.z, aabb.max.x, aabb.max.y, aabb.max.z);
+	return s;
+}
+
+string fn_Read_position_t(position_t &pos)
+{
+	string s;
+	SPrintf(s, "xyz: %6.6f, %6.6f, %6.6f", pos.x, pos.y, pos.z);
+	return s;
+}
+
+string fn_Read_position4_t(position4_t &pos)
+{
+	string s;
+	SPrintf(s, "wxyz: %6.6f, %6.6f, %6.6f, %6.6f", pos.w, pos.x, pos.y, pos.z);
+	return s;
+}
+
+string fn_Read_BlendWeight(ubyte4n_t &weights)
+{
+	string s;
+	float x = (float)weights.x / 255.0f;
+	float y = (float)weights.y / 255.0f;
+	float z = (float)weights.z / 255.0f;
+	float w = (float)weights.w / 255.0f;
+	return SPrintf(s, "xyzw: %6.6f, %6.6f, %6.6f, %6.6f", x, y, z, w);
+}
+
+string fn_Read_BlendWeight_Float3(blendweight_float3_t& blendweight)
+{
+	string s;
+	return SPrintf(s, "xyz: %6.6f, %6.6f, %6.6f", blendweight.x, blendweight.y, blendweight.z);
+}
+
+string fn_Read_Tangent_Float3(tangent_float3_t& tangent)
+{
+	string s;
+	return SPrintf(s, "xyz: %6.6f, %6.6f, %6.6f", tangent.x, tangent.y, tangent.z);
+}
+
+string fn_Read_Binormal_Float3(binormal_float3_t& binormal)
+{
+	string s;
+	return SPrintf(s, "xyz: %6.6f, %6.6f, %6.6f", binormal.x, binormal.y, binormal.z);
+}
+
+string fn_Read_BlendIndices(d3dcolor_t &indices)
+{
+	string s;
+	return SPrintf(s, "%u, %u, %u, %u", indices.a, indices.r, indices.g, indices.b);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+LittleEndian();
+header_t												header<name="Header">;
+dmat_t													dmat<name="Dmat">;
+if (header.version == 3)
+{
+	typedef struct
+	{
+		v3_mesh_header_t mesh_header<name="Header">;
+		local uint mat_def_hash = dmat.materials[mesh_header.material_index].material_definition_hash;
+		switch (mat_def_hash)
+		{
+			///////////////////////////////////////////////////////////////////////////////////////////
+			case 2201291178: //Character
+			{
+				if (bytes_per_vertex == 36)
+				{
+					typedef struct
+					{
+						v3_character_layout_stream_size36_t			points[mesh_header.vertex_count]<name="Points", optimize=false>;
+					} v3_character_stream_size36_t;
+
+					v3_character_stream_size36_t stream<name="Stream">;
+				}
+				else
+				{
+					typedef struct
+					{
+						v3_character_layout_stream_size40_t			points[mesh_header.vertex_count]<name="Points", optimize=false>;
+					} v3_character_stream_size40_t;
+
+					v3_character_stream_size40_t stream<name="Stream">;
+				}
+
+				break;
+			}
+			///////////////////////////////////////////////////////////////////////////////////////////
+			case 221567923: //Vehicle
+			case 2340912194:
+			{
+				typedef struct
+				{
+					v3_vehicle_layout_stream_t				points[mesh_header.vertex_count]<name="Points", optimize=false>;
+				} v3_vehicle_stream_t;
+
+				v3_vehicle_stream_t stream<name="Stream">;
+
+				break;
+			}
+			///////////////////////////////////////////////////////////////////////////////////////////
+			case 3731096925: //Structure
+			{
+				typedef struct
+				{
+					v3_structure_layout_stream_t			points[mesh_header.vertex_count]<name="Points", optimize=false>;
+				} v3_structure_stream_t;
+
+				v3_structure_stream_t stream<name="Stream">;
+
+				break;
+			}
+			///////////////////////////////////////////////////////////////////////////////////////////
+			case 1354477071: //BumpRigid
+			{
+				typedef struct
+				{
+					v3_bumprigid_layout_stream_t			points[mesh_header.vertex_count]<name="Points", optimize=false>;
+				} v3_bumprigid_stream_t;
+
+				v3_bumprigid_stream_t stream<name="Stream">;
+
+				break;
+			}
+			///////////////////////////////////////////////////////////////////////////////////////////
+			case 822435615: //GroundFog
+			case 2481186467: //StreamWater
+			case 89888680: //ObjectGlass
+			case 1060696129: //ObjectStealth
+			case 3736651547: //Object_PS
+			case 1404200969: //Object
+			{
+				typedef struct
+				{
+					v3_object_layout_stream_t					points[mesh_header.vertex_count]<name="Points", optimize=false>;
+				} v3_object_stream_t;
+
+				v3_object_stream_t stream<name="Stream">;
+
+				break;
+			}
+			default:
+			{
+				break;
+			}
+		}
+		if (mesh_header.index_size == 2)
+		{
+			typedef struct
+			{
+				triangle_2_t									faces[mesh_header.index_count / 3]<name="Triangles">;
+			} v3_triangles_2_t;
+			
+			v3_triangles_2_t								faces<name="Faces">;
+		}
+		else if (mesh_header.index_size == 4)
+		{
+			typedef struct
+			{
+				triangle_4_t									faces[mesh_header.index_count / 3]<name="Triangles">;
+			} v3_triangles_4_t;
+			
+			v3_triangles_4_t								faces<name="Faces">;
+		}
+	} mesh3_t;
+	typedef struct
+	{
+		aabb_t											aabb<name="AABB">;
+		uint												mesh_count<name="Mesh Count">;
+		mesh3_t											mesh[mesh_count]<name="Mesh", optimize=false>;
+	} model3_t;
+	model3_t											model<name="Model">;
+}
+else if (header.version == 4)
+{
+	typedef struct
+	{
+		v4_mesh_header_t mesh_header<name="Header">;
+		local uint mat_def_hash = dmat.materials[mesh_header.material_index].material_definition_hash;
+		
+		switch (mat_def_hash)
+		{
+			///////////////////////////////////////////////////////////////////////////////////////////
+			case 2169551848: //Model_Skinned_0Overlay
+			case 1979818902: //Model_Skinned_1Overlay
+			case 876159118: //Model_Skinned_2Overlay
+			case 3119298163: //Model_Skinned_3Overlay
+			case 2260955742: //Model_Skinned_4Overlay
+			{
+				typedef struct
+				{
+					uint																	bytes_per_vertex<name="BytesPerVertex">;
+					modelskinned_layout_stream_0_t				points[mesh_header.vertex_count]<name="Points", optimize=false>;
+				} modelskinned_stream_0_t;
+
+				modelskinned_stream_0_t stream0<name="Stream0">;
+
+				local uint bpv = ReadUInt();
+
+				if (bpv == 16)
+				{
+					typedef struct
+					{
+						uint																			bytes_per_vertex<name="BytesPerVertex">;
+						character_layout_stream_1_size16_t				points[mesh_header.vertex_count]<name="Points", optimize=false>;
+					} model_skinned_stream_1_size16_t;
+
+					model_skinned_stream_1_size16_t stream1<name="Stream1">;
+				}
+				else
+				{
+					typedef struct
+					{
+						uint																			bytes_per_vertex<name="BytesPerVertex">;
+						modelskinned_layout_stream_1_t						points[mesh_header.vertex_count]<name="Points", optimize=false>;
+					} modelskinned_stream_1_t;
+
+					modelskinned_stream_1_t stream1<name="Stream1">;
+				}
+
+				break;
+			}
+			///////////////////////////////////////////////////////////////////////////////////////////
+			case 2607188219: //AuraxiumCharacter
+			case 2201291178: //Character
+			{
+				typedef struct
+				{
+					uint															bytes_per_vertex<name="BytesPerVertex">;
+					character_layout_stream_0_t				points[mesh_header.vertex_count]<name="Points", optimize=false>;
+				} character_stream_0_t;
+
+				character_stream_0_t stream0<name="Stream0">;
+
+				local uint bpv = ReadUInt();
+
+				if (bpv == 16)
+				{
+					typedef struct
+					{
+						uint																			bytes_per_vertex<name="BytesPerVertex">;
+						character_layout_stream_1_size16_t				points[mesh_header.vertex_count]<name="Points", optimize=false>;
+					} character_stream_1_size16_t;
+
+					character_stream_1_size16_t stream1<name="Stream1">;
+				}
+				else
+				{
+					typedef struct
+					{
+						uint																			bytes_per_vertex<name="BytesPerVertex">;
+						character_layout_stream_1_size20_t				points[mesh_header.vertex_count]<name="Points", optimize=false>;
+					} character_stream_1_size20_t;
+
+					character_stream_1_size20_t stream1<name="Stream1">;
+				}
+
+				break;
+			}
+			///////////////////////////////////////////////////////////////////////////////////////////
+			case 221567923: //VehicleRigid
+			case 1601597413://VehicleGlass
+			case 2340912194://Vehicle
+			{
+				typedef struct
+				{
+					uint															bytes_per_vertex<name="BytesPerVertex">;
+					vehicle_layout_stream_0_t					points[mesh_header.vertex_count]<name="Points", optimize=false>;
+				} vehicle_stream_0_t;
+
+				vehicle_stream_0_t stream0<name="Stream0">;
+
+				local uint bpv = ReadUInt();
+
+				if (bpv == 20)
+				{
+					typedef struct
+					{
+						uint																			bytes_per_vertex<name="BytesPerVertex">;
+						vehicle_layout_stream_1_size20_t					points[mesh_header.vertex_count]<name="Points", optimize=false>;
+					} vehicle_stream_1_size20_t;
+
+					vehicle_stream_1_size20_t stream1<name="Stream1">;
+				}
+				else
+				{
+					typedef struct
+					{
+						uint																			bytes_per_vertex<name="BytesPerVertex">;
+						vehicle_layout_stream_1_size24_t					points[mesh_header.vertex_count]<name="Points", optimize=false>;
+					} vehicle_stream_1_size24_t;
+
+					vehicle_stream_1_size24_t stream1<name="Stream1">;
+				}
+
+
+				break;
+			}
+			///////////////////////////////////////////////////////////////////////////////////////////
+			case 3731096925: //Structure
+			{
+				typedef struct
+				{
+					uint															bytes_per_vertex<name="BytesPerVertex">;
+					structure_layout_stream_0_t				points[mesh_header.vertex_count]<name="Points", optimize=false>;
+				} structure_stream_0_t;
+				typedef struct
+				{
+					uint															bytes_per_vertex<name="BytesPerVertex">;
+					structure_layout_stream_1_t				points[mesh_header.vertex_count]<name="Points", optimize=false>;
+				} structure_stream_1_t;
+
+				structure_stream_0_t stream0<name="Stream0">;
+				structure_stream_1_t stream1<name="Stream1">;
+
+				break;
+			}
+			///////////////////////////////////////////////////////////////////////////////////////////
+			case 929593841: //BumpRigidHologram2Sided
+			case 2594400110: //BumpRigidHologram2S
+			case 18883829: //BumpRigidHologram2SidedBlend
+			case 1354477071: //BumpRigidHologram
+			case 2595232590: //BumpRigidNoOcclusion
+			case 1354477071: //BumpRigid
+			case 1812334699: //Arena BumpRigid
+			{
+				typedef struct
+				{
+					uint															bytes_per_vertex<name="BytesPerVertex">;
+					bumprigid_layout_stream_0_t				points[mesh_header.vertex_count]<name="Points", optimize=false>;
+				} bumprigid_stream_0_t;
+				typedef struct
+				{
+					uint															bytes_per_vertex<name="BytesPerVertex">;
+					bumprigid_layout_stream_1_t				points[mesh_header.vertex_count]<name="Points", optimize=false>;
+				} bumprigid_stream_1_t;
+
+				bumprigid_stream_0_t stream0<name="Stream0">;
+				bumprigid_stream_1_t stream1<name="Stream1">;
+
+				break;
+			}
+			///////////////////////////////////////////////////////////////////////////////////////////
+			case 822435615: //GroundFog
+			case 2481186467: //StreamWater
+			case 89888680: //ObjectGlass
+			case 1060696129: //ObjectStealth
+			case 3736651547: //Object_PS
+			case 1404200969: //Object
+			{
+				typedef struct
+				{
+					uint															bytes_per_vertex<name="BytesPerVertex">;
+					object_layout_stream_0_t					points[mesh_header.vertex_count]<name="Points", optimize=false>;
+				} object_stream_0_t;
+				typedef struct
+				{
+					uint															bytes_per_vertex<name="BytesPerVertex">;
+					object_layout_stream_1_t					points[mesh_header.vertex_count]<name="Points", optimize=false>;
+				} object_stream_1_t;
+
+				object_stream_0_t stream0<name="Stream0">;
+				object_stream_1_t stream1<name="Stream1">;
+
+				break;
+			}
+			///////////////////////////////////////////////////////////////////////////////////////////
+			case 1796081103: //TwoSided
+			{
+				typedef struct
+				{
+					uint															bytes_per_vertex<name="BytesPerVertex">;
+					twosided_layout_stream_0_t					points[mesh_header.vertex_count]<name="Points", optimize=false>;
+				} twosided_stream_0_t;
+				typedef struct
+				{
+					uint															bytes_per_vertex<name="BytesPerVertex">;
+					twosided_layout_stream_1_t					points[mesh_header.vertex_count]<name="Points", optimize=false>;
+				} twosided_stream_1_t;
+
+				twosided_stream_0_t stream0<name="Stream0">;
+				twosided_stream_1_t stream1<name="Stream1">;
+
+				break;
+			}
+			//////////////////////////////////////////////////////////////////////////////////////////
+			case 2073217188: //RedDotEmissiveCenterScreen
+			{
+				break;
+			}
+			//////////////////////////////////////////////////////////////////////////////////////////
+			case 3963186085: //BumpSkin
+			{
+				typedef struct
+				{
+					uint																		bytes_per_vertex<name="BytesPerVertex">;
+					standard_stream_zero_layout_1_t					points[mesh_header.vertex_count]<name="Points", optimize=false>;
+				} bump_skin_stream_0_t;
+				
+				typedef struct
+				{
+					uint																		bytes_per_vertex<name="BytesPerVertex">;
+					bumpskin_layout_stream_1_t							points[mesh_header.vertex_count]<name="Points", optimize=false>;
+				} bump_skin_stream_1_t;
+				
+				bump_skin_stream_0_t stream0<name="Stream0">;
+				bump_skin_stream_1_t stream1<name="Stream1">;
+				
+				break;
+			}
+			default:
+			{
+				break;
+			}
+		}
+
+		if (mesh_header.index_size == 2)
+		{
+			typedef struct
+			{
+				triangle_2_t									faces[mesh_header.index_count / 3]<name="Triangles">;
+			} v4_triangles_2_t;
+			
+			v4_triangles_2_t								faces<name="Faces">;
+		}
+		else if (mesh_header.index_size == 4)
+		{
+			typedef struct
+			{
+				triangle_4_t									faces[mesh_header.index_count / 3]<name="Triangles">;
+			} v4_triangles_4_t;
+			
+			v4_triangles_4_t										faces<name="Faces">;
+		}
+		
+//		if (mesh_header.bone_transform_count > 0)
+//		{
+//			uint													draw_call_count<name="Drawcall Count">;
+//			//FSkip(4);
+//			drawcall_t										drawcall<name="Drawcall">;
+//			uint													bone_map_entry_count<name="Bonemap Entry Count">;
+//			
+//			typedef struct
+//			{
+//				bone_map_entry_t						bonemap[bone_map_entry_count]<name="Bonemap", optimize=false>;
+//			} bone_maps_t;
+//			
+//			bone_maps_t										bonemaps<name="Bonemaps">;
+//			uint													transform_count<name="Transform Count">;
+//			transform_t										transforms[transform_count]<name="Transforms">;
+//			
+//			typedef struct
+//			{
+//				aabb_t											transform_bbox[transform_count]<name="Transform BBox">;
+//			} v4_transform_bboxs_t;
+//			
+//			v4_transform_bboxs_t						transform_bboxs<name="Transform BBox's">;
+//			
+//			typedef struct
+//			{
+//				uint											bone_name_hash[transform_count]<name="Bone Name Hash">;
+//			} v4_bone_name_hash_t;
+//			
+//			v4_bone_name_hash_t						bone_name_hashs<name="Bone Name Hash's">;
+//		}
+	} mesh4_t;
+
+	typedef struct
+	{
+		aabb_t											aabb<name="AABB">;
+		uint												mesh_count<name="Mesh Count">;
+		mesh4_t											mesh[mesh_count]<name="Mesh", optimize=false>;
+	} model4_t;
+
+	model4_t											model<name="Model">;
+}
+else
+{
+	Warning( "Only able to process version 3 & 4 types of DMO files." );
+	return -1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
